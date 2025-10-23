@@ -1,0 +1,1 @@
+AJUSTA - Data Hub é uma plataforma monolítica de cadastro, visualização e análise de dados psico-socioeconômicos dos beneficiários atendidos pelo [Instituto Antônio Justa](https://www.instagram.com/institutoantoniojusta/). Seu principal objetivo é substituir os antigos formulários em papel por um sistema digital centralizado, eficiente e seguro.
