@@ -1,10 +1,13 @@
 altair==5.5.0
 attrs==25.4.0
+Authlib==1.6.5
 blinker==1.9.0
 cachetools==6.2.1
 certifi==2025.10.5
+cffi==2.0.0
 charset-normalizer==3.4.4
 click==8.3.0
+cryptography==46.0.3
 decorator==5.2.1
 duckdb==1.4.1
 gitdb==4.0.12
@@ -26,10 +29,12 @@ oauthlib==3.3.1
 packaging==25.0
 pandas==2.3.3
 pillow==11.3.0
+plotly==6.3.1
 protobuf==6.33.0
 pyarrow==21.0.0
 pyasn1==0.6.1
 pyasn1_modules==0.4.2
+pycparser==2.23
 pydeck==0.9.1
 python-dateutil==2.9.0.post0
 pytz==2025.2
