@@ -2,10 +2,13 @@ import streamlit as st
 import pandas as pd
 from datetime import date
 import time
+import utils.auth as auth
 
 from streamlit_gsheets import GSheetsConnection
-conn = st.connection("gsheets", type=GSheetsConnection)
 
+auth.check_auth()
+
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.title("📝 Novo Cadastro de Beneficiário")
 st.write("Preencha todos os campos abaixo para cadastrar um novo beneficiário.")
