@@ -31,7 +31,7 @@ st.page_link("pages/1_Dashboard.py", label="Dashboard", icon="1️⃣")
 st.page_link("pages/2_Beneficiarios.py", label="Beneficiários ativos", icon="2️⃣")
 st.page_link("pages/3_Detalhes.py", label="Detalhes beneficiários", icon="3️⃣")
 st.page_link("pages/4_Novo_Cadastro.py", label="Cadastro de beneficiários", icon="4️⃣")
-st.page_link("pages/5_Usuarios.py", label="Administração", icon="5️⃣")
+st.page_link("pages/5_Administração.py", label="Administração", icon="5️⃣")
 
 st.markdown("---")
 st.info("🎉 Login realizado com sucesso! Você tem acesso ao sistema.")
