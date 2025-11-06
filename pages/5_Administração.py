@@ -128,9 +128,9 @@ def expandable_form_component_simple(title, icon="➕"):
         st.caption("Campos obrigatórios estão marcados com *")
         
         with st.form(key=form_key, clear_on_submit=False):
-            nome = st.text_input("Nome *", placeholder="Digite o nome...")
-            email = st.text_input("E-mail *", placeholder="Digite o e-mail...")
-            telefone = st.text_input("Telefone *", placeholder="(00) 00000-0000")
+            nome = st.text_input("Nome *", placeholder="Nome do administrador", help="Digite o nome do usuário administrador que deseja adicionar como administrador.")
+            email = st.text_input("E-mail *", placeholder="usuario@exemplo.com", help="Digite o e-mail do usuário administrador que deseja adicionar como administrador.",)
+            telefone = st.text_input("Telefone *", placeholder="(00) 00000-0000", help="Digite o telefone do usuário administrador que deseja adicionar como administrador.")
             
             col1, col2 = st.columns(2)
             with col1:
