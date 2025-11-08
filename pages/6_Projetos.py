@@ -241,9 +241,9 @@ with st.expander("🗑️ Excluir Projeto"):
         
         col1, col2 = st.columns(2)
         with col1:
-            search = st.form_submit_button("🔍 Buscar", use_container_width=True)
+            search = st.form_submit_button("🔍 Buscar", width='stretch')
         with col2:
-            cancel = st.form_submit_button("❌ Cancelar", use_container_width=True)
+            cancel = st.form_submit_button("❌ Cancelar", width='stretch')
         
         # Processar cancelamento dentro do form
         if cancel:
@@ -301,7 +301,7 @@ with st.expander("🗑️ Excluir Projeto"):
         
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("✅ Confirmar Exclusão", use_container_width=True, type="primary"):
+            if st.button("✅ Confirmar Exclusão", width='stretch', type="primary"):
                 project_id_to_delete = st.session_state[search_key].get('id')
                 if delete_project(project_id_to_delete):
                     # Limpar estados
@@ -311,7 +311,7 @@ with st.expander("🗑️ Excluir Projeto"):
                     st.session_state[id_state_key] = ""
                     st.rerun()
         with col2:
-            if st.button("❌ Cancelar Exclusão", use_container_width=True):
+            if st.button("❌ Cancelar Exclusão", width='stretch'):
                 st.session_state[confirm_key] = False
                 st.session_state[search_key] = None
                 st.session_state[id_state_key] = ""
@@ -357,9 +357,9 @@ with st.expander("🔄 Alterar Status do Projeto"):
         
         col1, col2 = st.columns(2)
         with col1:
-            search = st.form_submit_button("🔍 Buscar", use_container_width=True)
+            search = st.form_submit_button("🔍 Buscar", width='stretch')
         with col2:
-            cancel = st.form_submit_button("❌ Cancelar", use_container_width=True)
+            cancel = st.form_submit_button("❌ Cancelar", width='stretch')
         
         # Processar cancelamento dentro do form
         if cancel:
@@ -431,7 +431,7 @@ with st.expander("🔄 Alterar Status do Projeto"):
         
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("✅ Confirmar Alteração", use_container_width=True, type="primary"):
+            if st.button("✅ Confirmar Alteração", width='stretch', type="primary"):
                 project_id_to_update = st.session_state[search_key].get('id')
                 if update_project_status(project_id_to_update):
                     # Limpar estados
@@ -441,7 +441,7 @@ with st.expander("🔄 Alterar Status do Projeto"):
                     st.session_state[id_state_key] = ""
                     st.rerun()
         with col2:
-            if st.button("❌ Cancelar Alteração", use_container_width=True):
+            if st.button("❌ Cancelar Alteração", width='stretch'):
                 st.session_state[confirm_key] = False
                 st.session_state[search_key] = None
                 st.session_state[id_state_key] = ""
