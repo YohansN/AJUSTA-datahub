@@ -54,10 +54,65 @@ def save_project(projeto, esta_ativo, descricao, principal_responsavel):
         updated_df = pd.concat([df, dados_projeto], ignore_index=True)
         conn.update(data = updated_df, worksheet="Projetos")
         st.success(f"✅ Projeto '{projeto}' cadastrado com sucesso!")
-        time.sleep(3)
+        time.sleep(2)
+        return True
     except Exception as e:
         st.error(f"❌ Erro ao salvar projeto: {str(e)}")
-    return False
+        return False
+
+def find_project_by_id(project_id):
+    """Busca projeto pelo ID na planilha"""
+    try:
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df = conn.read(worksheet="Projetos")
+        
+        if "id" not in df.columns:
+            return None
+        
+        # Buscar projeto pelo ID
+        project_row = df[df["id"].str.strip() == project_id.strip()]
+        
+        if project_row.empty:
+            return None
+        
+        return project_row.iloc[0]
+    except Exception as e:
+        st.error(f"❌ Erro ao buscar projeto: {str(e)}")
+        return None
+
+def delete_project(project_id):
+    """Remove projeto da planilha pelo ID"""
+    try:
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df = conn.read(worksheet="Projetos")
+        
+        if "id" not in df.columns:
+            st.error("❌ Coluna 'id' não encontrada na planilha.")
+            return False
+        
+        # Buscar índice do projeto
+        project_index = df[df["id"].str.strip() == project_id.strip()].index
+        
+        if project_index.empty:
+            st.error(f"❌ Projeto com ID {project_id} não encontrado.")
+            return False
+        
+        # Remover o projeto
+        df_updated = df.drop(project_index).reset_index(drop=True)
+        
+        # Escrever de volta para o Google Sheets
+        conn.update(data = df_updated, worksheet="Projetos")
+        
+        # Obter nome do projeto deletado para mensagem
+        deleted_project = df.iloc[project_index[0]]
+        nome_deletado = deleted_project.get("projeto", project_id)
+        
+        st.success(f"✅ Projeto '{nome_deletado}' (ID: {project_id}) removido com sucesso!")
+        time.sleep(2)
+        return True
+    except Exception as e:
+        st.error(f"❌ Erro ao deletar projeto: {str(e)}")
+        return False
 
 # Tela principal
 st.title("🏠 Projetos")
@@ -105,3 +160,121 @@ with st.expander("🔍 Adicionar Projeto"):
                 # Limpar formulário após salvar
                 st.session_state[reset_key] += 1
                 st.rerun()
+
+
+with st.expander("🗑️ Excluir Projeto"):
+    # Chave única para controlar o estado do formulário
+    form_key_base = f"form_delete_project"
+    reset_key = f"reset_{form_key_base}"
+    confirm_key = f"confirm_{form_key_base}"
+    search_key = f"search_{form_key_base}"
+    
+    # Inicializar estados
+    if reset_key not in st.session_state:
+        st.session_state[reset_key] = 0
+    if confirm_key not in st.session_state:
+        st.session_state[confirm_key] = False
+    if search_key not in st.session_state:
+        st.session_state[search_key] = None
+    
+    # Criar chave única do form baseada no contador de reset
+    form_key = f"{form_key_base}_{st.session_state[reset_key]}"
+    
+    # Chave para ID (baseada no título, não no form_key, para persistir entre resets)
+    id_state_key = f"id_{form_key_base}"
+    if id_state_key not in st.session_state:
+        st.session_state[id_state_key] = ""
+    
+    st.markdown("#### Buscar projeto por ID:")
+    st.caption("Digite o ID do projeto que deseja remover")
+    
+    # Chave para rastrear cancelamento
+    cancel_key_state = f"cancel_{form_key_base}"
+    
+    with st.form(key=form_key, clear_on_submit=False):
+        project_id = st.text_input(
+            "ID do projeto *", 
+            placeholder="Digite o ID do projeto...",
+            help="Digite o ID único do projeto que deseja remover",
+            value=st.session_state[id_state_key]
+        )
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            search = st.form_submit_button("🔍 Buscar", use_container_width=True)
+        with col2:
+            cancel = st.form_submit_button("❌ Cancelar", use_container_width=True)
+        
+        # Processar cancelamento dentro do form
+        if cancel:
+            st.session_state[cancel_key_state] = True
+    
+    # Processar cancelamento após submit do form
+    if st.session_state.get(cancel_key_state, False):
+        st.session_state[reset_key] += 1
+        st.session_state[confirm_key] = False
+        st.session_state[search_key] = None
+        st.session_state[id_state_key] = ""
+        st.session_state[cancel_key_state] = False
+        st.rerun()
+    
+    # Processar busca após submit do form
+    if search:
+        if not project_id:
+            st.warning("❌ Por favor, digite um ID para buscar.")
+            st.session_state[id_state_key] = ""
+        else:
+            st.session_state[id_state_key] = project_id
+            project = find_project_by_id(project_id)
+            if project is not None:
+                st.session_state[search_key] = project
+                st.session_state[confirm_key] = True
+            else:
+                st.error(f"❌ Nenhum projeto encontrado com o ID: {project_id}")
+                st.session_state[search_key] = None
+                st.session_state[confirm_key] = False
+    
+    # Mostrar informações do projeto encontrado
+    if st.session_state[search_key] is not None:
+        project = st.session_state[search_key]
+        st.markdown("---")
+        st.markdown("#### 📋 Projeto encontrado:")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.info(f"**ID:** {project.get('id', 'N/A')}")
+            st.info(f"**Nome:** {project.get('projeto', 'N/A')}")
+            st.info(f"**Status:** {project.get('esta_ativo', 'N/A')}")
+        with col2:
+            st.info(f"**Responsável:** {project.get('principal_responsavel', 'N/A')}")
+            st.info(f"**Beneficiados:** {project.get('quantidade_beneficiados', 'N/A')}")
+            if "data_cadastro" in project:
+                st.info(f"**Cadastrado em:** {project.get('data_cadastro', 'N/A')}")
+        
+        if "descricao" in project and pd.notna(project.get('descricao')):
+            st.markdown("---")
+            st.markdown(f"**Descrição:** {project.get('descricao', 'N/A')}")
+    
+    # Mostrar confirmação de exclusão
+    if st.session_state[confirm_key] and st.session_state[search_key] is not None:
+        st.markdown("---")
+        st.warning("⚠️ **ATENÇÃO:** Esta ação não pode ser desfeita!")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("✅ Confirmar Exclusão", use_container_width=True, type="primary"):
+                project_id_to_delete = st.session_state[search_key].get('id')
+                if delete_project(project_id_to_delete):
+                    # Limpar estados
+                    st.session_state[reset_key] += 1
+                    st.session_state[confirm_key] = False
+                    st.session_state[search_key] = None
+                    st.session_state[id_state_key] = ""
+                    st.rerun()
+        with col2:
+            if st.button("❌ Cancelar Exclusão", use_container_width=True):
+                st.session_state[confirm_key] = False
+                st.session_state[search_key] = None
+                st.session_state[id_state_key] = ""
+                st.session_state[reset_key] += 1
+                st.rerun()
+    
