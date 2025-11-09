@@ -5,6 +5,7 @@ import pandas as pd
 from datetime import datetime
 import time
 
+from utils.data import load_sheet_data, clear_data_cache, update_sheet_data
 from streamlit_gsheets import GSheetsConnection
 
 st.set_page_config(
@@ -15,13 +16,9 @@ st.set_page_config(
 
 auth.check_auth()
 
-conn = st.connection("gsheets", type=GSheetsConnection)
-
 # Funções para gerenciar os projetos
 def get_projects():
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    df = conn.read(worksheet="Projetos")
-    return df
+    return load_sheet_data("Projetos")
 
 def validate_form(projeto, esta_ativo):
     campos_obrigatorios = {
@@ -38,7 +35,6 @@ def validate_form(projeto, esta_ativo):
 
 def save_project(projeto, esta_ativo, descricao, principal_responsavel):
     try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
         dados_projeto = pd.DataFrame([{
             "id": str(uuid.uuid4()),
             "projeto": projeto,
@@ -50,11 +46,10 @@ def save_project(projeto, esta_ativo, descricao, principal_responsavel):
             "cadastrado_por": st.user.email
         }])
 
-        df = conn.read(worksheet="Projetos")
-        updated_df = pd.concat([df, dados_projeto], ignore_index=True)
-        conn.update(data = updated_df, worksheet="Projetos")
+        update_sheet_data("Projetos", dados_projeto)
         st.success(f"✅ Projeto '{projeto}' cadastrado com sucesso!")
         time.sleep(2)
+        clear_data_cache()
         return True
     except Exception as e:
         st.error(f"❌ Erro ao salvar projeto: {str(e)}")
@@ -63,8 +58,7 @@ def save_project(projeto, esta_ativo, descricao, principal_responsavel):
 def find_project_by_id(project_id):
     """Busca projeto pelo ID na planilha"""
     try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(worksheet="Projetos")
+        df = load_sheet_data("Projetos")
         
         if "id" not in df.columns:
             return None
@@ -83,8 +77,7 @@ def find_project_by_id(project_id):
 def delete_project(project_id):
     """Remove projeto da planilha pelo ID"""
     try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(worksheet="Projetos")
+        df = load_sheet_data("Projetos")
         
         if "id" not in df.columns:
             st.error("❌ Coluna 'id' não encontrada na planilha.")
@@ -109,6 +102,7 @@ def delete_project(project_id):
         
         st.success(f"✅ Projeto '{nome_deletado}' (ID: {project_id}) removido com sucesso!")
         time.sleep(2)
+        clear_data_cache()
         return True
     except Exception as e:
         st.error(f"❌ Erro ao deletar projeto: {str(e)}")
@@ -117,8 +111,7 @@ def delete_project(project_id):
 def update_project_status(project_id):
     """Alterna o status do projeto entre Ativo e Inativo"""
     try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(worksheet="Projetos")
+        df = load_sheet_data("Projetos")
         
         if "id" not in df.columns or "esta_ativo" not in df.columns:
             st.error("❌ Colunas necessárias não encontradas na planilha.")
@@ -149,6 +142,7 @@ def update_project_status(project_id):
         status_text = "ativado" if new_status == "Sim" else "desativado"
         st.success(f"✅ Projeto '{project_name}' foi {status_text} com sucesso!")
         time.sleep(2)
+        clear_data_cache()
         return True
     except Exception as e:
         st.error(f"❌ Erro ao atualizar status do projeto: {str(e)}")

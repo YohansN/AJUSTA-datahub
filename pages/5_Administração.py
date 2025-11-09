@@ -5,6 +5,8 @@ import pandas as pd
 from datetime import datetime
 import time
 
+from utils.data import load_sheet_data, clear_data_cache, update_sheet_data
+
 st.set_page_config(
     page_title="AJUSTA - Admin",
     page_icon="⚙️",
@@ -17,9 +19,7 @@ st.title("📊 Administração")
 st.write("Gerencie os usuários autorizados do sistema.")
 
 def get_admin_users():
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    df = conn.read(worksheet="Autenticação")
-    return df
+    return load_sheet_data("Autenticação")
 
 def validate_form(nome, email, telefone):
     campos_obrigatorios = {
@@ -47,11 +47,10 @@ def save_admin_user(nome, email, telefone):
             "cadastrado por": st.user.email
         }])
 
-        df = conn.read(worksheet="Autenticação")
-        updated_df = pd.concat([df, dados_admin_user], ignore_index=True)
-        conn.update(data = updated_df, worksheet="Autenticação")
+        update_sheet_data("Autenticação", dados_admin_user)
         st.success(f"✅ Administrador(a) {nome} cadastrado com sucesso!")
         time.sleep(3)
+        clear_data_cache()
     except Exception as e:
         st.error(f"❌ Erro ao salvar usuário: {str(e)}")
     return False
@@ -105,6 +104,7 @@ def delete_admin_user(email):
         
         st.success(f"✅ Usuário {nome_deletado} ({email}) removido com sucesso!")
         time.sleep(2)
+        clear_data_cache()
         return True
     except Exception as e:
         st.error(f"❌ Erro ao deletar usuário: {str(e)}")
@@ -200,9 +200,9 @@ def expandable_delete_form_component(title, icon="🗑️"):
             
             col1, col2 = st.columns(2)
             with col1:
-                search = st.form_submit_button("🔍 Buscar", use_container_width=True)
+                search = st.form_submit_button("🔍 Buscar", width='stretch')
             with col2:
-                cancel = st.form_submit_button("❌ Cancelar", use_container_width=True)
+                cancel = st.form_submit_button("❌ Cancelar", width='stretch')
         
         # Processar busca após submit do form
         if search:
@@ -241,7 +241,7 @@ def expandable_delete_form_component(title, icon="🗑️"):
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("✅ Confirmar Exclusão", use_container_width=True, type="primary"):
+                if st.button("✅ Confirmar Exclusão", width='stretch', type="primary"):
                     email_to_delete = st.session_state[search_key].get('e-mail')
                     if delete_admin_user(email_to_delete):
                         # Limpar estados
@@ -251,7 +251,7 @@ def expandable_delete_form_component(title, icon="🗑️"):
                         st.session_state[email_state_key] = ""
                         st.rerun()
             with col2:
-                if st.button("❌ Cancelar Exclusão", use_container_width=True):
+                if st.button("❌ Cancelar Exclusão", width='stretch'):
                     st.session_state[confirm_key] = False
                     st.session_state[search_key] = None
                     st.session_state[email_state_key] = ""

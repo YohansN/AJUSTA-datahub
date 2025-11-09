@@ -4,11 +4,10 @@ from datetime import date
 import time
 import utils.auth as auth
 
+from utils.data import load_sheet_data, clear_data_cache, update_sheet_data
 from streamlit_gsheets import GSheetsConnection
 
 auth.check_auth()
-
-conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.title("📝 Novo Cadastro de Beneficiário")
 st.write("Preencha todos os campos abaixo para cadastrar um novo beneficiário.")
@@ -141,13 +140,11 @@ def save_data():
     }])
 
     # Envio de dados para o Google Sheets
-    df = conn.read()
-    updated_df = pd.concat([df, dados_beneficiario], ignore_index=True)
-    conn.update(data = updated_df, worksheet="Dados")
+    update_sheet_data("Dados", dados_beneficiario)
 
     st.success(f"✅ Beneficiário {nome_completo} cadastrado com sucesso!")
     time.sleep(3)
-    
+    clear_data_cache()
 
 if submitted:
     if validate_form():
