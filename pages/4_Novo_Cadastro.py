@@ -9,10 +9,65 @@ from streamlit_gsheets import GSheetsConnection
 
 auth.check_auth()
 
+def get_projetos_ativos():
+    try:
+        df_projetos = load_sheet_data("Projetos")
+        if df_projetos.empty or "esta_ativo" not in df_projetos.columns:
+            return pd.DataFrame()
+        projetos_ativos = df_projetos[df_projetos["esta_ativo"].str.strip().str.lower() == "sim"]
+        return projetos_ativos
+    except Exception:
+        return pd.DataFrame()
+
+def get_administradores():
+    return load_sheet_data("Autenticação")
+
+def increase_beneficiados_projetos(projetos_selecionados):
+    """Incrementa quantidade_beneficiados em 1 para cada projeto selecionado"""
+    if not projetos_selecionados:
+        return
+    
+    try:
+        df_projetos = load_sheet_data("Projetos")
+        
+        if df_projetos.empty or "projeto" not in df_projetos.columns:
+            return
+        
+        # Para cada projeto selecionado, incrementar quantidade_beneficiados
+        for projeto_nome in projetos_selecionados:
+            # Encontrar o índice do projeto pelo nome
+            projeto_index = df_projetos[df_projetos["projeto"].str.strip() == projeto_nome.strip()].index
+            
+            if not projeto_index.empty:
+                if "quantidade_beneficiados" in df_projetos.columns:
+                    # Converter para numérico se necessário
+                    current_value = df_projetos.loc[projeto_index[0], "quantidade_beneficiados"]
+                    try:
+                        current_value = int(current_value) if pd.notna(current_value) else 0
+                    except (ValueError, TypeError):
+                        current_value = 0
+                    
+                    df_projetos.loc[projeto_index[0], "quantidade_beneficiados"] = current_value + 1
+        
+        # Atualizar a planilha inteira
+        update_sheet_data("Projetos", df_projetos)
+        clear_data_cache()
+    except Exception as e:
+        st.error(f"⚠️ Erro ao atualizar quantidade de beneficiados: {str(e)}")
+
+
+#FORMULARIO
 st.title("📝 Novo Cadastro de Beneficiário")
 st.write("Preencha todos os campos abaixo para cadastrar um novo beneficiário.")
 
-with st.form(key="novo_cadastro", clear_on_submit=True):
+# Chave para controlar quando limpar o formulário
+form_reset_key = "form_novo_cadastro_reset"
+if form_reset_key not in st.session_state:
+    st.session_state[form_reset_key] = 0
+
+form_key = f"novo_cadastro_{st.session_state[form_reset_key]}"
+
+with st.form(key=form_key, clear_on_submit=False):
 
     st.subheader("👤 Dados Pessoais")
     col1, col2 = st.columns(2)
@@ -70,16 +125,27 @@ with st.form(key="novo_cadastro", clear_on_submit=True):
         ano_tratamento_hanseniase = st.number_input("Ano de Tratamento Hanseníase", min_value=1900, max_value=date.today().year, value=None) # VALIDAR
     
     with col2:
-        projeto_acao = st.text_input("Projeto/Ação", placeholder="Nome do projeto ou ação") #TODO: Buscar de planilha de projetos e fazer selectbox
-    
+        projetos_ativos_df = get_projetos_ativos()
+        projetos_disponiveis = projetos_ativos_df["projeto"].tolist() if not projetos_ativos_df.empty else []
+        
+        if projetos_disponiveis:
+            projeto_acao = st.multiselect(
+                "Projeto/Ação",
+                options=projetos_disponiveis,
+                placeholder="Selecione o(s) projeto(s) ou ação(ões)",
+            )
+        else:
+            st.info("ℹ️ Nenhum projeto ativo disponível no momento.")
+            projeto_acao = []
+
     st.divider()
 
-    st.subheader("📋 Dados do Responsável")
+    st.subheader("📋 Dados do responsável pelo preenchimento")
     col1, col2 = st.columns(2)
     
     with col1:
-        responsavel_preenchimento = st.text_input("Responsável pelo Preenchimento *", placeholder="Nome do responsável")
-    
+        st.write(f"Responsável pelo Preenchimento: {st.user.name}")
+        responsavel_preenchimento = st.user.name
     with col2:
         responsavel_entrevista = st.text_input("Responsável pela Entrevista", placeholder="Nome do entrevistador")
     
@@ -110,6 +176,9 @@ def validate_form():
             return True
 
 def save_data():
+    # Converter lista de projetos para string separada por vírgulas
+    projeto_acao_str = ", ".join(projeto_acao) if projeto_acao else ""
+    
     dados_beneficiario = pd.DataFrame([{
         "nome_completo": nome_completo,
         "cpf": cpf,
@@ -134,17 +203,25 @@ def save_data():
         "acesso_energia": acesso_energia,
         "situacao_hanseniase": situacao_hanseniase,
         "ano_tratamento_hanseniase": ano_tratamento_hanseniase if ano_tratamento_hanseniase else "",
-        "projeto_acao": projeto_acao,
+        "projeto_acao": projeto_acao_str,  # Salvar como string separada por vírgulas
         "responsavel_preenchimento": responsavel_preenchimento,
         "responsavel_entrevista": responsavel_entrevista
     }])
 
     # Envio de dados para o Google Sheets
     update_sheet_data("Dados", dados_beneficiario)
+    
+    # Incrementar quantidade de beneficiados para cada projeto selecionado
+    if projeto_acao:
+        increase_beneficiados_projetos(projeto_acao)
 
     st.success(f"✅ Beneficiário {nome_completo} cadastrado com sucesso!")
-    time.sleep(3)
+    time.sleep(2)
     clear_data_cache()
+    
+    # Limpar formulário apenas após sucesso
+    st.session_state[form_reset_key] += 1
+    st.rerun()
 
 if submitted:
     if validate_form():
