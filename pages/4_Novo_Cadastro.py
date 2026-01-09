@@ -140,6 +140,22 @@ with st.form(key=form_key, clear_on_submit=False):
 
     st.divider()
 
+    st.subheader("📋 Histórico de Hanseníase")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        ja_teve_hanseniase = st.selectbox("Já teve hanseníase?", ["", "Sim", "Não"])
+        ano_diagnostico_hanseniase = st.number_input("Ano aproximado do diagnóstico", min_value=1900, max_value=date.today().year, value=None)
+        classificacao_operacional = st.selectbox("Classificação operacional no diagnóstico", ["", "Paucibacilar (PB)", "Multibacilar (MB)", "Não sabe", "Não informado"])
+        forma_clinica = st.selectbox("Forma clínica", ["", "Indeterminada", "Tuberculoide", "Dimorfa", "Virchowiana", "Não sabe"])
+    
+    with col2:
+        numero_lesoes = st.selectbox("Número aproximado de lesões na época", ["", "1", "2–5", "6–10", "10+", "Não sabe"])
+        nervos_afetados = st.selectbox("Teve nervos afetados?", ["", "Nenhum", "1–2", "3 ou mais", "Não sabe"])
+        grau_incapacidade = st.selectbox("Grau de incapacidade após o tratamento", ["", "Grau 0 – sem incapacidade", "Grau 1 – perda de sensibilidade", "Grau 2 – deformidades visíveis", "Não avaliado", "Não sabe"])
+
+    st.divider()
+
     st.subheader("📋 Dados do responsável pelo preenchimento")
     col1, col2 = st.columns(2)
     
@@ -203,7 +219,14 @@ def save_data():
         "acesso_energia": acesso_energia,
         "situacao_hanseniase": situacao_hanseniase,
         "ano_tratamento_hanseniase": ano_tratamento_hanseniase if ano_tratamento_hanseniase else "",
-        "projeto_acao": projeto_acao_str,  # Salvar como string separada por vírgulas
+        "projeto_acao": projeto_acao_str,
+        "ja_teve_hanseniase": ja_teve_hanseniase,
+        "ano_diagnostico_hanseniase": ano_diagnostico_hanseniase if ano_diagnostico_hanseniase else "",
+        "classificacao_operacional": classificacao_operacional,
+        "forma_clinica": forma_clinica,
+        "numero_lesoes": numero_lesoes,
+        "nervos_afetados": nervos_afetados,
+        "grau_incapacidade": grau_incapacidade,
         "responsavel_preenchimento": responsavel_preenchimento,
         "responsavel_entrevista": responsavel_entrevista
     }])
