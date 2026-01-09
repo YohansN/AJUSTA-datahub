@@ -110,12 +110,16 @@ with st.form(key=form_key, clear_on_submit=False):
     with col1:
         estado_civil = st.selectbox("Estado Civil", ["", "Solteiro(a)", "Casado(a)", "Divorciado(a)", "Viúvo(a)", "União Estável"])
         numero_filhos = st.number_input("Número de Filhos", min_value=0, max_value=20, value=0)
-        numero_membros_familia = st.number_input("Número de Membros da Família", min_value=1, max_value=20, value=1)
-        responsavel_familiar = st.text_input("Responsável Familiar", placeholder="Nome do responsável")
     
     with col2:
-        renda_bruta_total = st.number_input("Renda Bruta Total (R$)", min_value=0.0, value=0.0, step=1.0)
-        renda_per_capita = st.number_input("Renda Per Capita (R$)", min_value=0.0, value=0.0, step=1.0)
+        numero_membros_familia = st.number_input("Número de Membros da Família", min_value=1, max_value=30, value=1)
+        renda_bruta_total = st.number_input("Renda Bruta Total (R$)", min_value=0.0)
+        # Calcular renda per capita automaticamente
+        if numero_membros_familia > 0:
+            renda_per_capita = renda_bruta_total / numero_membros_familia
+        else:
+            renda_per_capita = 0.0
+        st.metric("Renda Per Capita (R$)", f"R$ {renda_per_capita:.2f}", help="Calculado automaticamente: Renda Bruta Total ÷ Número de Membros da Família")
     
     st.divider()
 
@@ -204,7 +208,6 @@ def save_data():
         "estado_civil": estado_civil,
         "numero_filhos": numero_filhos,
         "numero_membros_familia": numero_membros_familia,
-        "responsavel_familiar": responsavel_familiar,
         "renda_bruta_total": renda_bruta_total,
         "renda_per_capita": renda_per_capita,
         "tipo_residencia": tipo_residencia,
