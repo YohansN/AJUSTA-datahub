@@ -246,37 +246,78 @@ st.markdown("## 🏥 Situação de Hanseníase")
 col1, col2 = st.columns(2)
 
 with col1:
-    hanseniase_counts = df_processed['situacao_hanseniase'].value_counts()
+    # Usar ja_teve_hanseniase para criar categorias
+    if 'ja_teve_hanseniase' in df_processed.columns:
+        # Mapear valores para categorias mais descritivas
+        def categorizar_hanseniase(valor):
+            if pd.isna(valor) or valor == "":
+                return "Não informado"
+            elif valor == "Sim":
+                return "Já teve hanseníase"
+            elif valor == "Não":
+                return "Não possui"
+            else:
+                return "Não informado"
+        
+        df_processed['categoria_hanseniase'] = df_processed['ja_teve_hanseniase'].apply(categorizar_hanseniase)
+        hanseniase_counts = df_processed['categoria_hanseniase'].value_counts()
+    else:
+        # Fallback para dados antigos que ainda podem ter situacao_hanseniase
+        if 'situacao_hanseniase' in df_processed.columns:
+            hanseniase_counts = df_processed['situacao_hanseniase'].value_counts()
+        else:
+            hanseniase_counts = pd.Series()
     
-    fig_hansen = px.pie(
-        values=hanseniase_counts.values,
-        names=hanseniase_counts.index,
-        title="Situação de Hanseníase",
-        color_discrete_sequence=PALETTE_HANSENIASE
-    )
-    fig_hansen.update_traces(
-        textposition='inside',
-        textinfo='percent+label',
-        marker=dict(line=dict(color='#FFFFFF', width=2))
-    )
-    fig_hansen = apply_plotly_style(fig_hansen)
-    st.plotly_chart(fig_hansen, use_container_width=True)
+    if not hanseniase_counts.empty:
+        fig_hansen = px.pie(
+            values=hanseniase_counts.values,
+            names=hanseniase_counts.index,
+            title="Situação de Hanseníase",
+            color_discrete_sequence=PALETTE_HANSENIASE
+        )
+        fig_hansen.update_traces(
+            textposition='inside',
+            textinfo='percent+label',
+            marker=dict(line=dict(color='#FFFFFF', width=2))
+        )
+        fig_hansen = apply_plotly_style(fig_hansen)
+        st.plotly_chart(fig_hansen, use_container_width=True)
+    else:
+        st.info("Nenhum dado de hanseníase disponível.")
 
 with col2:
     st.markdown("### Estatísticas")
     
-    em_tratamento = df_processed[df_processed['situacao_hanseniase'] == 'Em tratamento'].shape[0]
-    curados = df_processed[df_processed['situacao_hanseniase'] == 'Curado'].shape[0]
-    sem_registro = df_processed[df_processed['situacao_hanseniase'] == 'Não possui'].shape[0]
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.metric("Em Tratamento", em_tratamento)
-        st.metric("Sem Registro", sem_registro)
-    
-    with col2:
-        st.metric("Curados", curados)
+    if 'ja_teve_hanseniase' in df_processed.columns:
+        ja_teve = df_processed[df_processed['ja_teve_hanseniase'] == 'Sim'].shape[0]
+        nao_teve = df_processed[df_processed['ja_teve_hanseniase'] == 'Não'].shape[0]
+        nao_informado = df_processed[(df_processed['ja_teve_hanseniase'].isna()) | (df_processed['ja_teve_hanseniase'] == '')].shape[0]
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.metric("Já teve hanseníase", ja_teve)
+            st.metric("Não informado", nao_informado)
+        
+        with col2:
+            st.metric("Não possui", nao_teve)
+    else:
+        # Fallback para dados antigos
+        if 'situacao_hanseniase' in df_processed.columns:
+            em_tratamento = df_processed[df_processed['situacao_hanseniase'] == 'Em tratamento'].shape[0]
+            curados = df_processed[df_processed['situacao_hanseniase'] == 'Curado'].shape[0]
+            sem_registro = df_processed[df_processed['situacao_hanseniase'] == 'Não possui'].shape[0]
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.metric("Em Tratamento", em_tratamento)
+                st.metric("Sem Registro", sem_registro)
+            
+            with col2:
+                st.metric("Curados", curados)
+        else:
+            st.info("Nenhum dado disponível.")
 
 st.markdown("---")
 

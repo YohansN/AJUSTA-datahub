@@ -77,12 +77,14 @@ with st.form(key=form_key, clear_on_submit=False):
         cpf = st.text_input("CPF *", placeholder="000.000.000-00", max_chars=14)
         rg = st.text_input("RG", placeholder="Digite o RG")
         data_nascimento = st.date_input("Data de Nascimento *", value=None, max_value=date.today(), min_value=date(1900, 1, 1))
+        escolaridade = st.selectbox("Escolaridade", ["", "Sem escolaridade / Analfabeto", "Fundamental incompleto", "Fundamental completo", "Médio incompleto", "Médio completo", "Superior incompleto", "Superior completo", "Pós-graduação", "Não informado"])
 
     with col2:
         sexo = st.selectbox("Sexo *", ["", "Masculino", "Feminino", "Outro"])
         genero = st.selectbox("Gênero", ["", "Cisgênero", "Transgênero", "Não-binário", "Outro"])
         cor_raca_etnia = st.selectbox("Cor/Raça/Etnia", ["", "Branca", "Parda", "Preta", "Amarela", "Indígena", "Não informado"])
         telefone = st.text_input("Telefone", placeholder="(00) 00000-0000")
+        ocupacao = st.selectbox("Ocupação", ["", "Sem ocupação / Desempregado", "Agricultor / Trabalhador rural", "Operário / Trabalhador industrial", "Comerciante / Vendedor", "Prestador de serviços", "Profissional liberal", "Funcionário público", "Estudante", "Aposentado", "Do lar / Dona de casa", "Outro", "Não informado"])
 
     st.divider()
 
@@ -117,29 +119,6 @@ with st.form(key=form_key, clear_on_submit=False):
     
     st.divider()
 
-    st.subheader("🏥 Dados de Saúde")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        situacao_hanseniase = st.selectbox("Situação Hanseníase", ["", "Não possui", "Em tratamento", "Curado", "Não informado"])
-        ano_tratamento_hanseniase = st.number_input("Ano de Tratamento Hanseníase", min_value=1900, max_value=date.today().year, value=None) # VALIDAR
-    
-    with col2:
-        projetos_ativos_df = get_projetos_ativos()
-        projetos_disponiveis = projetos_ativos_df["projeto"].tolist() if not projetos_ativos_df.empty else []
-        
-        if projetos_disponiveis:
-            projeto_acao = st.multiselect(
-                "Projeto/Ação",
-                options=projetos_disponiveis,
-                placeholder="Selecione o(s) projeto(s) ou ação(ões)",
-            )
-        else:
-            st.info("ℹ️ Nenhum projeto ativo disponível no momento.")
-            projeto_acao = []
-
-    st.divider()
-
     st.subheader("📋 Histórico de Hanseníase")
     col1, col2 = st.columns(2)
     
@@ -156,14 +135,27 @@ with st.form(key=form_key, clear_on_submit=False):
 
     st.divider()
 
-    st.subheader("📋 Dados do responsável pelo preenchimento")
-    col1, col2 = st.columns(2)
+    st.subheader("🏢 Relacionamento com o Instituto")
+    projetos_ativos_df = get_projetos_ativos()
+    projetos_disponiveis = projetos_ativos_df["projeto"].tolist() if not projetos_ativos_df.empty else []
     
-    with col1:
-        st.write(f"Responsável pelo Preenchimento: {st.user.name}")
-        responsavel_preenchimento = st.user.name
-    with col2:
-        responsavel_entrevista = st.text_input("Responsável pela Entrevista", placeholder="Nome do entrevistador")
+    if projetos_disponiveis:
+        projeto_acao = st.multiselect(
+            "Projeto/Ação",
+            options=projetos_disponiveis,
+            placeholder="Selecione o(s) projeto(s) ou ação(ões)",
+        )
+    else:
+        st.info("ℹ️ Nenhum projeto ativo disponível no momento.")
+        projeto_acao = []
+
+    st.divider()
+
+    st.subheader("📋 Dados do responsável pelo preenchimento")
+
+    st.write(f"Responsável pelo Preenchimento: {st.user.name}")
+    responsavel_preenchimento = st.user.name
+    responsavel_entrevista = st.text_input("Responsável pela Entrevista", placeholder="Nome do entrevistador")
     
     st.divider()
 
@@ -203,6 +195,8 @@ def save_data():
         "sexo": sexo,
         "genero": genero,
         "cor_raca_etnia": cor_raca_etnia,
+        "escolaridade": escolaridade,
+        "ocupacao": ocupacao,
         "endereco": endereco,
         "bairro": bairro,
         "telefone": telefone,
@@ -217,8 +211,6 @@ def save_data():
         "acesso_agua": acesso_agua,
         "acesso_esgoto": acesso_esgoto,
         "acesso_energia": acesso_energia,
-        "situacao_hanseniase": situacao_hanseniase,
-        "ano_tratamento_hanseniase": ano_tratamento_hanseniase if ano_tratamento_hanseniase else "",
         "projeto_acao": projeto_acao_str,
         "ja_teve_hanseniase": ja_teve_hanseniase,
         "ano_diagnostico_hanseniase": ano_diagnostico_hanseniase if ano_diagnostico_hanseniase else "",
