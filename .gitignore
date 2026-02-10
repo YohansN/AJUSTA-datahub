@@ -1,2 +1,5 @@
 .streamlit/
 **/__pycache__
+data/
+docs/
+.cursor/
