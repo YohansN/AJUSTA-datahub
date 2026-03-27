@@ -26,7 +26,7 @@ def show_login_page():
             st.markdown("Faça login com sua conta Google para acessar o sistema.")
             
             # Botão de login
-            if st.button("🔑 Entrar com Google", use_container_width=True, type="primary"):
+            if st.button("🔑 Entrar com Google", width="stretch", type="primary"):
                 st.login()
             
             st.markdown("---")
@@ -49,7 +49,7 @@ def show_access_denied():
             
             col1, col2, col3 = st.columns([1, 1, 1])
             with col2:
-                if st.button("🚪 Fazer Logout", use_container_width=True):
+                if st.button("🚪 Fazer Logout", width="stretch"):
                     st.logout()
 
 def check_auth():

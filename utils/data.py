@@ -1,15 +1,77 @@
 from collections import defaultdict
+import math
+import numbers
 
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
+
+
+def _display_str_cell(v):
+    """Converte célula de planilha para string segura para exibição (evita tipos mistos int/str)."""
+    if v is None:
+        return pd.NA
+    if isinstance(v, bool):
+        return str(v)
+    if isinstance(v, numbers.Integral):
+        return str(int(v))
+    if isinstance(v, float):
+        if math.isnan(v):
+            return pd.NA
+        if v == math.floor(v):
+            return str(int(v))
+        return str(v)
+    if isinstance(v, str):
+        s = v.strip()
+        return s if s else pd.NA
+    try:
+        if pd.isna(v):
+            return pd.NA
+    except (TypeError, ValueError):
+        pass
+    return str(v).strip()
+
+
+# Colunas de texto na aba Dados (cadastro); evita Arrow misturando int/str sem forçar numéricas para string.
+_DADOS_COERCE_TO_STRING = frozenset({
+    "nome_completo", "cpf", "rg", "data_nascimento", "sexo", "genero",
+    "cor_raca_etnia", "escolaridade", "ocupacao", "endereco", "bairro",
+    "telefone", "tipo_residencia", "acesso_agua", "acesso_esgoto",
+    "acesso_energia", "estado_civil", "ja_teve_hanseniase",
+    "classificacao_operacional", "forma_clinica", "numero_lesoes",
+    "nervos_afetados", "grau_incapacidade", "projeto_acao",
+    "responsavel_preenchimento", "responsavel_entrevista",
+    "situacao_hanseniase",
+})
+
+
+def normalize_sheet_columns(df, worksheet):
+    """
+    Na aba ``Dados``, campos de texto vindos do Sheets podem misturar int e str (ex.: ``endereco``,
+    ``cpf``); o PyArrow do ``st.dataframe`` falha. Colunas numéricas não entram na lista. Em outras
+    abas, só ``cpf``.
+    """
+    if df is None or df.empty:
+        return df
+    out = df.copy()
+    if worksheet == "Dados":
+        for name in list(out.columns):
+            key = str(name).lower()
+            if key in _DADOS_COERCE_TO_STRING:
+                out[name] = out[name].map(_display_str_cell).astype("string")
+    else:
+        for name in list(out.columns):
+            if str(name).lower() == "cpf":
+                out[name] = out[name].map(_display_str_cell).astype("string")
+    return out
+
 
 @st.cache_data(ttl=300)
 def load_sheet_data(worksheet, force_refresh=False):
     """Carrega dados de uma planilha específica"""
     conn = st.connection("gsheets", type=GSheetsConnection)
     df = conn.read(worksheet=worksheet)
-    return df
+    return normalize_sheet_columns(df, worksheet)
 
 def clear_data_cache():
     """Remove entradas do ``st.cache_data`` (ex.: leituras de planilha). Não atualiza a UI sozinha."""

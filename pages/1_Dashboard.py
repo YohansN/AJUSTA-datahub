@@ -1,11 +1,11 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import utils.auth as auth
+from utils.data import load_sheet_data
 from utils.colors import AJUSTA_COLORS, AJUSTA_PALETTE, PALETTE_HANSENIASE, apply_plotly_style
 
 # Verificar autenticação
@@ -19,8 +19,7 @@ st.set_page_config(
 )
 
 # Carregar dados
-conn = st.connection("gsheets", type=GSheetsConnection)
-df = conn.read(worksheet="Dados")
+df = load_sheet_data("Dados")
 
 st.title("📊 Dashboard - AJUSTA Data Hub")
 st.markdown("---")
@@ -371,4 +370,4 @@ st.markdown("---")
 st.markdown("## 📋 Resumo dos Dados")
 
 with st.expander("Ver tabela completa de dados"):
-    st.dataframe(df_processed, use_container_width=True)
+    st.dataframe(df_processed, width="stretch")
