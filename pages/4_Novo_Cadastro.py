@@ -1,11 +1,9 @@
 import streamlit as st
 import pandas as pd
 from datetime import date
-import time
 import utils.auth as auth
 
-from utils.data import load_sheet_data, clear_data_cache, update_sheet_data
-from streamlit_gsheets import GSheetsConnection
+from utils.data import load_sheet_data, clear_data_cache, update_sheet_data, overwrite_sheet_data
 
 auth.check_auth()
 
@@ -49,15 +47,25 @@ def increase_beneficiados_projetos(projetos_selecionados):
                     
                     df_projetos.loc[projeto_index[0], "quantidade_beneficiados"] = current_value + 1
         
-        # Atualizar a planilha inteira
-        update_sheet_data("Projetos", df_projetos)
+        if not overwrite_sheet_data("Projetos", df_projetos):
+            return
         clear_data_cache()
     except Exception as e:
-        st.error(f"⚠️ Erro ao atualizar quantidade de beneficiados: {str(e)}")
+        st.error(f"Erro ao atualizar quantidade de beneficiados: {str(e)}")
 
+@st.dialog("Beneficiário cadastrado com sucesso!")
+def dialog_after_success_save_data(nome_completo):
+    st.success(f"Beneficiário **{nome_completo}** cadastrado com sucesso!")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.link_button("Voltar para o dashboard", url="http://localhost:8501/Dashboard")  
+    with col2:
+        if st.button("Cadastrar outro beneficiário"):
+            st.session_state[form_reset_key] += 1
+            st.rerun()
 
 #FORMULARIO
-st.title("📝 Novo Cadastro de Beneficiário")
+st.title("Novo Cadastro de Beneficiário")
 st.write("Preencha todos os campos abaixo para cadastrar um novo beneficiário.")
 
 # Chave para controlar quando limpar o formulário
@@ -69,7 +77,7 @@ form_key = f"novo_cadastro_{st.session_state[form_reset_key]}"
 
 with st.form(key=form_key, clear_on_submit=False):
 
-    st.subheader("👤 Dados Pessoais")
+    st.subheader("Dados Pessoais")
     col1, col2 = st.columns(2)
     
     with col1:
@@ -83,12 +91,12 @@ with st.form(key=form_key, clear_on_submit=False):
         sexo = st.selectbox("Sexo *", ["", "Masculino", "Feminino", "Outro"])
         genero = st.selectbox("Gênero", ["", "Cisgênero", "Transgênero", "Não-binário", "Outro"])
         cor_raca_etnia = st.selectbox("Cor/Raça/Etnia", ["", "Branca", "Parda", "Preta", "Amarela", "Indígena", "Não informado"])
-        telefone = st.text_input("Telefone", placeholder="(00) 00000-0000")
+        telefone = st.text_input("Telefone", placeholder="(00) 00000-0000", max_chars=15)
         ocupacao = st.selectbox("Ocupação", ["", "Sem ocupação / Desempregado", "Agricultor / Trabalhador rural", "Operário / Trabalhador industrial", "Comerciante / Vendedor", "Prestador de serviços", "Profissional liberal", "Funcionário público", "Estudante", "Aposentado", "Do lar / Dona de casa", "Outro", "Não informado"])
 
     st.divider()
 
-    st.subheader("🏠 Dados Residenciais")
+    st.subheader("Dados Residenciais")
     col1, col2 = st.columns(2)
     
     with col1:
@@ -104,7 +112,7 @@ with st.form(key=form_key, clear_on_submit=False):
     
     st.divider()
 
-    st.subheader("👨‍👩‍👧‍👦 Dados Familiares")
+    st.subheader("Dados Familiares")
     col1, col2 = st.columns(2)
     
     with col1:
@@ -119,11 +127,9 @@ with st.form(key=form_key, clear_on_submit=False):
             renda_per_capita = renda_bruta_total / numero_membros_familia
         else:
             renda_per_capita = 0.0
-        st.metric("Renda Per Capita (R$)", f"R$ {renda_per_capita:.2f}", help="Calculado automaticamente: Renda Bruta Total ÷ Número de Membros da Família")
-    
     st.divider()
 
-    st.subheader("📋 Histórico de Hanseníase")
+    st.subheader("Histórico de Hanseníase")
     col1, col2 = st.columns(2)
     
     with col1:
@@ -139,7 +145,7 @@ with st.form(key=form_key, clear_on_submit=False):
 
     st.divider()
 
-    st.subheader("🏢 Relacionamento com o Instituto")
+    st.subheader("Relacionamento com o Instituto")
     projetos_ativos_df = get_projetos_ativos()
     projetos_disponiveis = projetos_ativos_df["projeto"].tolist() if not projetos_ativos_df.empty else []
     
@@ -150,12 +156,12 @@ with st.form(key=form_key, clear_on_submit=False):
             placeholder="Selecione o(s) projeto(s) ou ação(ões)",
         )
     else:
-        st.info("ℹ️ Nenhum projeto ativo disponível no momento.")
+        st.info("Nenhum projeto ativo disponível no momento.")
         projeto_acao = []
 
     st.divider()
 
-    st.subheader("📋 Dados do responsável pelo preenchimento")
+    st.subheader("Dados do responsável pelo preenchimento")
 
     st.write(f"Responsável pelo Preenchimento: {st.user.name}")
     responsavel_preenchimento = st.user.name
@@ -163,7 +169,7 @@ with st.form(key=form_key, clear_on_submit=False):
     
     st.divider()
 
-    submitted = st.form_submit_button("💾 Cadastrar Beneficiário", use_container_width=True)
+    submitted = st.form_submit_button("Cadastrar Beneficiário", width='stretch')
 
 
 def validate_form():
@@ -183,7 +189,7 @@ def validate_form():
         campos_vazios = [campo for campo, valor in campos_obrigatorios.items() if not valor]
         
         if campos_vazios:
-            st.warning(f"❌ Por favor, preencha os seguintes campos obrigatórios: {', '.join(campos_vazios)}")
+            st.warning(f"Por favor, preencha os seguintes campos obrigatórios: {', '.join(campos_vazios)}")
         else:
             return True
 
@@ -226,20 +232,14 @@ def save_data():
         "responsavel_entrevista": responsavel_entrevista
     }])
 
-    # Envio de dados para o Google Sheets
-    update_sheet_data("Dados", dados_beneficiario)
-    
-    # Incrementar quantidade de beneficiados para cada projeto selecionado
+    if not update_sheet_data("Dados", dados_beneficiario):
+        st.error("Erro ao salvar dados do beneficiário na planilha.")
+        return
+
     if projeto_acao:
         increase_beneficiados_projetos(projeto_acao)
 
-    st.success(f"✅ Beneficiário {nome_completo} cadastrado com sucesso!")
-    time.sleep(2)
-    clear_data_cache()
-    
-    # Limpar formulário apenas após sucesso
-    st.session_state[form_reset_key] += 1
-    st.rerun()
+    dialog_after_success_save_data(nome_completo)
 
 if submitted:
     if validate_form():

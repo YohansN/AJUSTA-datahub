@@ -3,9 +3,13 @@ import utils.auth as auth
 import uuid
 import pandas as pd
 from datetime import datetime
-import time
 
-from utils.data import load_sheet_data, clear_data_cache, update_sheet_data
+from utils.data import (
+    load_sheet_data,
+    update_sheet_data,
+    refresh_after_sheet_mutation,
+    get_beneficiarios_por_projeto,
+)
 from streamlit_gsheets import GSheetsConnection
 
 st.set_page_config(
@@ -16,9 +20,27 @@ st.set_page_config(
 
 auth.check_auth()
 
+conn = st.connection("gsheets", type=GSheetsConnection)
+
 # Funções para gerenciar os projetos
 def get_projects():
     return load_sheet_data("Projetos")
+
+
+def _beneficiarios_do_projeto(mapa, nome_projeto):
+    """Associa o nome do projeto na planilha Projetos às chaves do mapa (strip, case-insensitive)."""
+    if pd.isna(nome_projeto):
+        return []
+    np = str(nome_projeto).strip()
+    if not np:
+        return []
+    if np in mapa:
+        return mapa[np]
+    npl = np.lower()
+    for k, v in mapa.items():
+        if str(k).strip().lower() == npl:
+            return v
+    return []
 
 def validate_form(projeto, esta_ativo):
     campos_obrigatorios = {
@@ -29,7 +51,7 @@ def validate_form(projeto, esta_ativo):
     campos_vazios = [campo for campo, valor in campos_obrigatorios.items() if not valor]
     
     if campos_vazios:
-        st.warning(f"❌ Por favor, preencha os seguintes campos obrigatórios: {', '.join(campos_vazios)}")
+        st.warning(f"Por favor, preencha os seguintes campos obrigatórios: {', '.join(campos_vazios)}")
     else:
         return True
 
@@ -46,13 +68,14 @@ def save_project(projeto, esta_ativo, descricao, principal_responsavel):
             "cadastrado_por": st.user.email
         }])
 
-        update_sheet_data("Projetos", dados_projeto)
-        st.success(f"✅ Projeto '{projeto}' cadastrado com sucesso!")
-        time.sleep(2)
-        clear_data_cache()
+        if not update_sheet_data("Projetos", dados_projeto):
+            return False
+        refresh_after_sheet_mutation(
+            toast_message=f"Projeto '{projeto}' cadastrado com sucesso!"
+        )
         return True
     except Exception as e:
-        st.error(f"❌ Erro ao salvar projeto: {str(e)}")
+        st.error(f"Erro ao salvar projeto: {str(e)}")
         return False
 
 def find_project_by_id(project_id):
@@ -71,7 +94,7 @@ def find_project_by_id(project_id):
         
         return project_row.iloc[0]
     except Exception as e:
-        st.error(f"❌ Erro ao buscar projeto: {str(e)}")
+        st.error(f"Erro ao buscar projeto: {str(e)}")
         return None
 
 def delete_project(project_id):
@@ -80,14 +103,14 @@ def delete_project(project_id):
         df = load_sheet_data("Projetos")
         
         if "id" not in df.columns:
-            st.error("❌ Coluna 'id' não encontrada na planilha.")
+            st.error("Coluna 'id' não encontrada na planilha.")
             return False
         
         # Buscar índice do projeto
         project_index = df[df["id"].str.strip() == project_id.strip()].index
         
         if project_index.empty:
-            st.error(f"❌ Projeto com ID {project_id} não encontrado.")
+            st.error(f"Projeto com ID {project_id} não encontrado.")
             return False
         
         # Remover o projeto
@@ -100,12 +123,12 @@ def delete_project(project_id):
         deleted_project = df.iloc[project_index[0]]
         nome_deletado = deleted_project.get("projeto", project_id)
         
-        st.success(f"✅ Projeto '{nome_deletado}' (ID: {project_id}) removido com sucesso!")
-        time.sleep(2)
-        clear_data_cache()
+        refresh_after_sheet_mutation(
+            toast_message=f"Projeto '{nome_deletado}' (ID: {project_id}) removido com sucesso!"
+        )
         return True
     except Exception as e:
-        st.error(f"❌ Erro ao deletar projeto: {str(e)}")
+        st.error(f"Erro ao deletar projeto: {str(e)}")
         return False
 
 def update_project_status(project_id):
@@ -114,14 +137,14 @@ def update_project_status(project_id):
         df = load_sheet_data("Projetos")
         
         if "id" not in df.columns or "esta_ativo" not in df.columns:
-            st.error("❌ Colunas necessárias não encontradas na planilha.")
+            st.error("Colunas necessárias não encontradas na planilha.")
             return False
         
         # Buscar índice do projeto
         project_index = df[df["id"].str.strip() == project_id.strip()].index
         
         if project_index.empty:
-            st.error(f"❌ Projeto com ID {project_id} não encontrado.")
+            st.error(f"Projeto com ID {project_id} não encontrado.")
             return False
         
         # Obter status atual
@@ -140,139 +163,106 @@ def update_project_status(project_id):
         project_name = df.iloc[project_index[0]].get("projeto", project_id)
         
         status_text = "ativado" if new_status == "Sim" else "desativado"
-        st.success(f"✅ Projeto '{project_name}' foi {status_text} com sucesso!")
-        time.sleep(2)
-        clear_data_cache()
+        refresh_after_sheet_mutation(
+            toast_message=f"Projeto '{project_name}' foi {status_text} com sucesso!"
+        )
         return True
     except Exception as e:
-        st.error(f"❌ Erro ao atualizar status do projeto: {str(e)}")
+        st.error(f"Erro ao atualizar status do projeto: {str(e)}")
         return False
 
-# Tela principal
-st.title("🏠 Projetos")
-st.write("Gerencie os projetos do instituto.")
-st.caption("Os projetos cadastrados aparecerão como opção para preenchimento no cadastro de beneficiários.")
 
-st.dataframe(get_projects())
-
-with st.expander("🔍 Adicionar Projeto"):
-    # Chave única para controlar o estado do formulário
-    form_key_base = f"form_add_project"
-    reset_key = f"reset_{form_key_base}"
-    
-    # Inicializar contador de reset para forçar limpeza do form
-    if reset_key not in st.session_state:
-        st.session_state[reset_key] = 0
-    
-    # Criar chave única do form baseada no contador de reset
-    # Isso força o Streamlit a recriar o formulário quando resetado
-    form_key = f"{form_key_base}_{st.session_state[reset_key]}"
-
-    with st.form(key=form_key, clear_on_submit=False):
+@st.dialog("Adicionar Projeto")
+def add_project_dialog():
+    """Modal com formulário para cadastro de novo projeto."""
+    with st.container():
         st.markdown("#### Preencha os dados abaixo:")
         st.caption("Campos obrigatórios estão marcados com *")
-        
-        projeto = st.text_input("Nome do projeto *", placeholder="Nome do projeto", help="Digite o nome do projeto que deseja adicionar.")
-        esta_ativo = st.selectbox("O projeto está ativo? *", ["Sim", "Não"], placeholder="Sim", help="Selecione se o projeto está ativo no momento.")
-        descricao = st.text_area("Descrição", placeholder="O que é o projeto?", help="Descreva o projeto, o que ele faz, quem são os beneficiários, etc.")
-        principal_responsavel = st.text_input("Principal Responsável", placeholder="Nome do responsável pelo projeto", help="Digite o nome do responsável pelo projeto.")
-            
-        col1, col2 = st.columns(2)
-        with col1:
-            submit = st.form_submit_button("💾 Salvar", width='stretch')
-        with col2:
-            cancel = st.form_submit_button("❌ Cancelar", width='stretch')
-            
-        if cancel:
-            # Incrementar contador para forçar recriação do form limpo
-            st.session_state[reset_key] += 1
-            st.rerun()
-            
-        if submit:
-            if validate_form(projeto, esta_ativo):
-                save_project(projeto, esta_ativo, descricao, principal_responsavel)
-                # Limpar formulário após salvar
-                st.session_state[reset_key] += 1
+
+        with st.form(key="add_project_dialog_form", clear_on_submit=False):
+            projeto = st.text_input(
+                "Nome do projeto *",
+                placeholder="Nome do projeto",
+                help="Digite o nome do projeto que deseja adicionar.",
+            )
+            esta_ativo = st.selectbox(
+                "O projeto está ativo? *",
+                ["Sim", "Não"],
+                placeholder="Sim",
+                help="Selecione se o projeto está ativo no momento.",
+            )
+            descricao = st.text_area(
+                "Descrição",
+                placeholder="O que é o projeto?",
+                help="Descreva o projeto, o que ele faz, quem são os beneficiários, etc.",
+            )
+            principal_responsavel = st.text_input(
+                "Principal Responsável",
+                placeholder="Nome do responsável pelo projeto",
+                help="Digite o nome do responsável pelo projeto.",
+            )
+
+            col1, col2 = st.columns(2)
+            with col1:
+                cancel = st.form_submit_button("Cancelar", width='stretch')
+            with col2:
+                submit = st.form_submit_button("Salvar", type="primary", width='stretch')
+
+            if cancel:
                 st.rerun()
 
+            if submit:
+                if validate_form(projeto, esta_ativo) and save_project(projeto, esta_ativo, descricao, principal_responsavel):
+                    return "saved"
 
-with st.expander("🗑️ Excluir Projeto"):
-    # Chave única para controlar o estado do formulário
-    form_key_base = f"form_delete_project"
-    reset_key = f"reset_{form_key_base}"
-    confirm_key = f"confirm_{form_key_base}"
-    search_key = f"search_{form_key_base}"
-    
-    # Inicializar estados
-    if reset_key not in st.session_state:
-        st.session_state[reset_key] = 0
-    if confirm_key not in st.session_state:
-        st.session_state[confirm_key] = False
-    if search_key not in st.session_state:
-        st.session_state[search_key] = None
-    
-    # Criar chave única do form baseada no contador de reset
-    form_key = f"{form_key_base}_{st.session_state[reset_key]}"
-    
-    # Chave para ID (baseada no título, não no form_key, para persistir entre resets)
-    id_state_key = f"id_{form_key_base}"
-    if id_state_key not in st.session_state:
-        st.session_state[id_state_key] = ""
-    
-    st.markdown("#### Buscar projeto por ID:")
-    st.caption("Digite o ID do projeto que deseja remover")
-    
-    # Chave para rastrear cancelamento
-    cancel_key_state = f"cancel_{form_key_base}"
-    
-    with st.form(key=form_key, clear_on_submit=False):
-        project_id = st.text_input(
-            "ID do projeto *", 
-            placeholder="Digite o ID do projeto...",
-            help="Digite o ID único do projeto que deseja remover",
-            value=st.session_state[id_state_key]
-        )
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            search = st.form_submit_button("🔍 Buscar", width='stretch')
-        with col2:
-            cancel = st.form_submit_button("❌ Cancelar", width='stretch')
-        
-        # Processar cancelamento dentro do form
-        if cancel:
-            st.session_state[cancel_key_state] = True
-    
-    # Processar cancelamento após submit do form
-    if st.session_state.get(cancel_key_state, False):
-        st.session_state[reset_key] += 1
-        st.session_state[confirm_key] = False
-        st.session_state[search_key] = None
-        st.session_state[id_state_key] = ""
-        st.session_state[cancel_key_state] = False
-        st.rerun()
-    
-    # Processar busca após submit do form
-    if search:
-        if not project_id:
-            st.warning("❌ Por favor, digite um ID para buscar.")
-            st.session_state[id_state_key] = ""
-        else:
-            st.session_state[id_state_key] = project_id
-            project = find_project_by_id(project_id)
-            if project is not None:
-                st.session_state[search_key] = project
-                st.session_state[confirm_key] = True
-            else:
-                st.error(f"❌ Nenhum projeto encontrado com o ID: {project_id}")
-                st.session_state[search_key] = None
-                st.session_state[confirm_key] = False
-    
-    # Mostrar informações do projeto encontrado
-    if st.session_state[search_key] is not None:
-        project = st.session_state[search_key]
+
+@st.dialog("Excluir Projeto")
+def delete_project_dialog():
+    """Modal para buscar e excluir projeto por ID."""
+    for key in ("delete_project_dialog_project", "delete_project_dialog_confirm", "delete_project_dialog_id"):
+        if key not in st.session_state:
+            st.session_state[key] = None if "project" in key or "confirm" in key else ""
+
+    with st.container():
+        st.markdown("#### Buscar projeto por ID:")
+        st.caption("Digite o ID do projeto que deseja remover")
+
+        with st.form(key="delete_project_dialog_form", clear_on_submit=False):
+            project_id = st.text_input(
+                "ID do projeto *",
+                placeholder="Digite o ID do projeto...",
+                help="Digite o ID único do projeto que deseja remover",
+                value=st.session_state.get("delete_project_dialog_id", ""),
+            )
+
+            col1, col2 = st.columns(2)
+            with col1:
+                cancel = st.form_submit_button("Cancelar", width='stretch')
+            with col2:
+                search = st.form_submit_button("Buscar", type="primary", width='stretch')
+
+            if cancel:
+                st.rerun()
+
+            if search:
+                if not project_id:
+                    st.warning("Por favor, digite um ID para buscar.")
+                    st.session_state["delete_project_dialog_id"] = ""
+                else:
+                    st.session_state["delete_project_dialog_id"] = project_id
+                    project = find_project_by_id(project_id)
+                    if project is not None:
+                        st.session_state["delete_project_dialog_project"] = project
+                        st.session_state["delete_project_dialog_confirm"] = True
+                    else:
+                        st.error(f"Nenhum projeto encontrado com o ID: {project_id}")
+                        st.session_state["delete_project_dialog_project"] = None
+                        st.session_state["delete_project_dialog_confirm"] = False
+
+    project = st.session_state.get("delete_project_dialog_project")
+    if project is not None:
         st.markdown("---")
-        st.markdown("#### 📋 Projeto encontrado:")
+        st.markdown("#### Projeto encontrado:")
         col1, col2 = st.columns(2)
         with col1:
             st.info(f"**ID:** {project.get('id', 'N/A')}")
@@ -283,162 +273,166 @@ with st.expander("🗑️ Excluir Projeto"):
             st.info(f"**Beneficiados:** {project.get('quantidade_beneficiados', 'N/A')}")
             if "data_cadastro" in project:
                 st.info(f"**Cadastrado em:** {project.get('data_cadastro', 'N/A')}")
-        
-        if "descricao" in project and pd.notna(project.get('descricao')):
+        if "descricao" in project and pd.notna(project.get("descricao")):
             st.markdown("---")
             st.markdown(f"**Descrição:** {project.get('descricao', 'N/A')}")
-    
-    # Mostrar confirmação de exclusão
-    if st.session_state[confirm_key] and st.session_state[search_key] is not None:
+
+    if st.session_state.get("delete_project_dialog_confirm") and st.session_state.get("delete_project_dialog_project") is not None:
         st.markdown("---")
-        st.warning("⚠️ **ATENÇÃO:** Esta ação não pode ser desfeita!")
-        
+        st.warning("**ATENÇÃO:** Esta ação não pode ser desfeita!")
+
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("✅ Confirmar Exclusão", width='stretch', type="primary"):
-                project_id_to_delete = st.session_state[search_key].get('id')
-                if delete_project(project_id_to_delete):
-                    # Limpar estados
-                    st.session_state[reset_key] += 1
-                    st.session_state[confirm_key] = False
-                    st.session_state[search_key] = None
-                    st.session_state[id_state_key] = ""
-                    st.rerun()
-        with col2:
-            if st.button("❌ Cancelar Exclusão", width='stretch'):
-                st.session_state[confirm_key] = False
-                st.session_state[search_key] = None
-                st.session_state[id_state_key] = ""
-                st.session_state[reset_key] += 1
+            if st.button("Cancelar Exclusão", width='stretch'):
                 st.rerun()
 
-with st.expander("🔄 Alterar Status do Projeto"):
-    # Chave única para controlar o estado do formulário
-    form_key_base = f"form_toggle_status_project"
-    reset_key = f"reset_{form_key_base}"
-    confirm_key = f"confirm_{form_key_base}"
-    search_key = f"search_{form_key_base}"
-    
-    # Inicializar estados
-    if reset_key not in st.session_state:
-        st.session_state[reset_key] = 0
-    if confirm_key not in st.session_state:
-        st.session_state[confirm_key] = False
-    if search_key not in st.session_state:
-        st.session_state[search_key] = None
-    
-    # Criar chave única do form baseada no contador de reset
-    form_key = f"{form_key_base}_{st.session_state[reset_key]}"
-    
-    # Chave para ID (baseada no título, não no form_key, para persistir entre resets)
-    id_state_key = f"id_{form_key_base}"
-    if id_state_key not in st.session_state:
-        st.session_state[id_state_key] = ""
-    
-    st.markdown("#### Buscar projeto por ID:")
-    st.caption("Digite o ID do projeto para alterar seu status (Ativo/Inativo)")
-    
-    # Chave para rastrear cancelamento
-    cancel_key_state = f"cancel_{form_key_base}"
-    
-    with st.form(key=form_key, clear_on_submit=False):
-        project_id = st.text_input(
-            "ID do projeto *", 
-            placeholder="Digite o ID do projeto...",
-            help="Digite o ID único do projeto que deseja alterar o status",
-            value=st.session_state[id_state_key]
-        )
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            search = st.form_submit_button("🔍 Buscar", width='stretch')
         with col2:
-            cancel = st.form_submit_button("❌ Cancelar", width='stretch')
-        
-        # Processar cancelamento dentro do form
-        if cancel:
-            st.session_state[cancel_key_state] = True
-    
-    # Processar cancelamento após submit do form
-    if st.session_state.get(cancel_key_state, False):
-        st.session_state[reset_key] += 1
-        st.session_state[confirm_key] = False
-        st.session_state[search_key] = None
-        st.session_state[id_state_key] = ""
-        st.session_state[cancel_key_state] = False
-        st.rerun()
-    
-    # Processar busca após submit do form
-    if search:
-        if not project_id:
-            st.warning("❌ Por favor, digite um ID para buscar.")
-            st.session_state[id_state_key] = ""
-        else:
-            st.session_state[id_state_key] = project_id
-            project = find_project_by_id(project_id)
-            if project is not None:
-                st.session_state[search_key] = project
-                st.session_state[confirm_key] = True
-            else:
-                st.error(f"❌ Nenhum projeto encontrado com o ID: {project_id}")
-                st.session_state[search_key] = None
-                st.session_state[confirm_key] = False
-    
-    # Mostrar informações do projeto encontrado
-    if st.session_state[search_key] is not None:
-        project = st.session_state[search_key]
-        current_status = project.get('esta_ativo', 'N/A')
+            if st.button("Confirmar Exclusão", type="primary", width='stretch'):
+                project_id_to_delete = st.session_state["delete_project_dialog_project"].get("id")
+                if delete_project(project_id_to_delete):
+                    for key in ("delete_project_dialog_project", "delete_project_dialog_confirm", "delete_project_dialog_id"):
+                        st.session_state.pop(key, None)
+                    return "deleted"
+
+
+@st.dialog("Alterar Status do Projeto")
+def toggle_status_project_dialog():
+    """Modal para buscar projeto e alterar status (Ativo/Inativo)."""
+    for key in ("toggle_status_dialog_project", "toggle_status_dialog_confirm", "toggle_status_dialog_id"):
+        if key not in st.session_state:
+            st.session_state[key] = None if "project" in key or "confirm" in key else ""
+
+    with st.container():
+        st.markdown("#### Buscar projeto por ID:")
+        st.caption("Digite o ID do projeto para alterar seu status (Ativo/Inativo)")
+
+        with st.form(key="toggle_status_project_dialog_form", clear_on_submit=False):
+            project_id = st.text_input(
+                "ID do projeto *",
+                placeholder="Digite o ID do projeto...",
+                help="Digite o ID único do projeto que deseja alterar o status",
+                value=st.session_state.get("toggle_status_dialog_id", ""),
+            )
+
+            col1, col2 = st.columns(2)
+            with col1:
+                cancel = st.form_submit_button("Cancelar", width='stretch')
+            with col2:
+                search = st.form_submit_button("Buscar", type="primary", width='stretch')
+
+            if cancel:
+                st.rerun()
+
+            if search:
+                if not project_id:
+                    st.warning("Por favor, digite um ID para buscar.")
+                    st.session_state["toggle_status_dialog_id"] = ""
+                else:
+                    st.session_state["toggle_status_dialog_id"] = project_id
+                    project = find_project_by_id(project_id)
+                    if project is not None:
+                        st.session_state["toggle_status_dialog_project"] = project
+                        st.session_state["toggle_status_dialog_confirm"] = True
+                    else:
+                        st.error(f"Nenhum projeto encontrado com o ID: {project_id}")
+                        st.session_state["toggle_status_dialog_project"] = None
+                        st.session_state["toggle_status_dialog_confirm"] = False
+
+    project = st.session_state.get("toggle_status_dialog_project")
+    if project is not None:
+        current_status = project.get("esta_ativo", "N/A")
         new_status = "Não" if current_status == "Sim" else "Sim"
-        
+
         st.markdown("---")
-        st.markdown("#### 📋 Projeto encontrado:")
+        st.markdown("#### Projeto encontrado:")
         col1, col2 = st.columns(2)
         with col1:
             st.info(f"**ID:** {project.get('id', 'N/A')}")
             st.info(f"**Nome:** {project.get('projeto', 'N/A')}")
-            # Mostrar status atual com destaque
             if current_status == "Sim":
-                st.success(f"**Status Atual:** 🟢 Ativo")
+                st.success(f"**Status Atual:** Ativo")
             else:
-                st.warning(f"**Status Atual:** 🔴 Inativo")
+                st.warning(f"**Status Atual:** Inativo")
         with col2:
             st.info(f"**Responsável:** {project.get('principal_responsavel', 'N/A')}")
             st.info(f"**Beneficiados:** {project.get('quantidade_beneficiados', 'N/A')}")
             if "data_cadastro" in project:
                 st.info(f"**Cadastrado em:** {project.get('data_cadastro', 'N/A')}")
-        
-        # Mostrar mudança de status
+
         st.markdown("---")
         if new_status == "Sim":
-            st.info(f"📝 **Novo Status:** 🟢 Ativo (o projeto será ativado)")
+            st.info(f"**Novo Status:** Ativo (o projeto será ativado)")
         else:
-            st.info(f"📝 **Novo Status:** 🔴 Inativo (o projeto será desativado)")
-    
-    # Mostrar confirmação de alteração
-    if st.session_state[confirm_key] and st.session_state[search_key] is not None:
-        project = st.session_state[search_key]
-        current_status = project.get('esta_ativo', 'N/A')
-        new_status = "Não" if current_status == "Sim" else "Sim"
-        
+            st.info(f"**Novo Status:** Inativo (o projeto será desativado)")
+
+    if st.session_state.get("toggle_status_dialog_confirm") and st.session_state.get("toggle_status_dialog_project") is not None:
         st.markdown("---")
-        st.warning("⚠️ **Confirmação de Alteração de Status**")
-        
+        st.warning("**Confirmação de Alteração de Status**")
+
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("✅ Confirmar Alteração", width='stretch', type="primary"):
-                project_id_to_update = st.session_state[search_key].get('id')
+            if st.button("Confirmar Alteração", type="primary"):
+                project_id_to_update = st.session_state["toggle_status_dialog_project"].get("id")
                 if update_project_status(project_id_to_update):
-                    # Limpar estados
-                    st.session_state[reset_key] += 1
-                    st.session_state[confirm_key] = False
-                    st.session_state[search_key] = None
-                    st.session_state[id_state_key] = ""
-                    st.rerun()
+                    for key in ("toggle_status_dialog_project", "toggle_status_dialog_confirm", "toggle_status_dialog_id"):
+                        st.session_state.pop(key, None)
+                    return "updated"
         with col2:
-            if st.button("❌ Cancelar Alteração", width='stretch'):
-                st.session_state[confirm_key] = False
-                st.session_state[search_key] = None
-                st.session_state[id_state_key] = ""
-                st.session_state[reset_key] += 1
+            if st.button("Cancelar Alteração"):
                 st.rerun()
-    
+
+
+# Tela principal
+st.title("Projetos")
+st.write("Gerencie os projetos do instituto.")
+st.caption("Os projetos cadastrados aparecerão como opção para preenchimento no cadastro de beneficiários.")
+
+st.dataframe(get_projects())
+
+st.markdown("---")
+st.markdown("## Gerenciar Projetos")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    if st.button("Adicionar Projeto", type="primary", width='stretch'):
+        add_project_dialog()
+
+with col2:
+    if st.button("Excluir Projeto", width='stretch'):
+        for key in ("delete_project_dialog_project", "delete_project_dialog_confirm", "delete_project_dialog_id"):
+            st.session_state.pop(key, None)
+        delete_project_dialog()
+
+with col3:
+    if st.button("Alterar Status do Projeto", width='stretch'):
+        for key in ("toggle_status_dialog_project", "toggle_status_dialog_confirm", "toggle_status_dialog_id"):
+            st.session_state.pop(key, None)
+        toggle_status_project_dialog()
+
+st.markdown("---")
+st.markdown("## Beneficiários por projeto")
+st.caption(
+    "Lista montada a partir da aba **Dados**: cada beneficiário entra nos projetos "
+    "marcados no campo *Projeto/Ação* do cadastro (mesmos nomes da coluna *projeto*)."
+)
+
+_mapa_benef = get_beneficiarios_por_projeto()
+_df_proj = get_projects()
+if _df_proj.empty or "projeto" not in _df_proj.columns:
+    st.info("Não há projetos cadastrados para exibir.")
+else:
+    for _, prow in _df_proj.iterrows():
+        pn = prow.get("projeto")
+        nomes = _beneficiarios_do_projeto(_mapa_benef, pn)
+        label = str(pn).strip() if pd.notna(pn) else "(sem nome)"
+        n_b = len(nomes)
+        exp_title = f"{label} — {n_b} {'beneficiário' if n_b == 1 else 'beneficiários'}"
+        with st.expander(exp_title, expanded=False):
+            if nomes:
+                st.markdown("\n".join(f"- {n}" for n in nomes))
+            else:
+                st.caption("Nenhum beneficiário vinculado a este projeto nos cadastros.")
+
+
+
