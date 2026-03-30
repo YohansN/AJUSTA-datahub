@@ -31,6 +31,50 @@ PALETTE_SEXO = ['#1f77b4', '#ff7f0e', '#9467bd']
 PALETTE_HANSENIASE = ['#d62728', '#2ca02c', '#ffbb00', '#95a5a6']
 PALETTE_RACA = ['#1f77b4', '#2ca02c', '#8c564b', '#9467bd', '#e377c2', '#7f7f7f']
 
+# Paleta coesa para o dashboard (contraste sem cores destoantes)
+DASHBOARD_CATEGORICAL = [
+    '#1a5f7a',
+    '#2d8f6f',
+    '#0d9488',
+    '#c2410c',
+    '#4c1d95',
+    '#0369a1',
+    '#15803d',
+]
+
+COR_NAO_INFORMADO = '#6c757d'
+
+DEFAULT_LABEL_NULO = 'Não informado'
+
+
+def discrete_color_map(
+    categories,
+    label_nulo: str = DEFAULT_LABEL_NULO,
+    palette: list | None = None,
+) -> dict:
+    """Mapeia cada categoria a uma cor; ``label_nulo`` usa cinza fixo."""
+    pal = palette or DASHBOARD_CATEGORICAL
+    out = {}
+    pi = 0
+    for cat in categories:
+        key = str(cat)
+        if key == label_nulo:
+            out[cat] = COR_NAO_INFORMADO
+        else:
+            out[cat] = pal[pi % len(pal)]
+            pi += 1
+    return out
+
+
+def discrete_colors_list(
+    categories,
+    label_nulo: str = DEFAULT_LABEL_NULO,
+    palette: list | None = None,
+) -> list:
+    """Lista de cores na mesma ordem de ``categories``."""
+    m = discrete_color_map(categories, label_nulo=label_nulo, palette=palette)
+    return [m[c] for c in categories]
+
 # Configurações de estilo para gráficos Plotly
 PLOTLY_STYLE = {
     'font_family': 'Arial',
