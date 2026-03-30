@@ -42,6 +42,34 @@ def _beneficiarios_do_projeto(mapa, nome_projeto):
             return v
     return []
 
+
+def _texto_celula(row, key, default="—"):
+    """Texto seguro para exibição a partir de uma linha da planilha."""
+    if key not in row.index:
+        return default
+    val = row.get(key)
+    if pd.isna(val):
+        return default
+    s = str(val).strip()
+    return s if s else default
+
+
+def _render_status_projeto(row):
+    """Exibe ativo/inativo com componentes nativos do Streamlit."""
+    if "esta_ativo" not in row.index:
+        st.info("Status não informado")
+        return
+    raw = row.get("esta_ativo")
+    if pd.isna(raw):
+        st.info("Status não informado")
+        return
+    s = str(raw).strip().lower()
+    if s == "sim":
+        st.success("Ativo")
+    else:
+        st.warning("Inativo")
+
+
 def validate_form(projeto, esta_ativo):
     campos_obrigatorios = {
         "projeto": projeto,
@@ -386,8 +414,11 @@ def toggle_status_project_dialog():
 st.title("Projetos")
 st.write("Gerencie os projetos do instituto.")
 st.caption("Os projetos cadastrados aparecerão como opção para preenchimento no cadastro de beneficiários.")
-
-st.dataframe(get_projects())
+st.caption(
+    "Visão geral da planilha **Projetos**. Status, descrição, responsável e lista de beneficiários "
+    "(aba **Dados**) estão na seção **Beneficiários por projeto** abaixo."
+)
+st.dataframe(get_projects(), use_container_width=True)
 
 st.markdown("---")
 st.markdown("## Gerenciar Projetos")
@@ -416,6 +447,10 @@ st.caption(
     "Lista montada a partir da aba **Dados**: cada beneficiário entra nos projetos "
     "marcados no campo *Projeto/Ação* do cadastro (mesmos nomes da coluna *projeto*)."
 )
+st.caption(
+    "**Vinculados (aba Dados)** conta nomes únicos encontrados na planilha de beneficiários. "
+    "**Contador (planilha)** é o valor da coluna *quantidade_beneficiados* em **Projetos** (atualizado no cadastro)."
+)
 
 _mapa_benef = get_beneficiarios_por_projeto()
 _df_proj = get_projects()
@@ -429,8 +464,45 @@ else:
         n_b = len(nomes)
         exp_title = f"{label} — {n_b} {'beneficiário' if n_b == 1 else 'beneficiários'}"
         with st.expander(exp_title, expanded=False):
+            c_status, c_metrics = st.columns(2)
+            with c_status:
+                st.markdown("**Status**")
+                _render_status_projeto(prow)
+            with c_metrics:
+                m1, m2 = st.columns(2)
+                with m1:
+                    st.metric("Vinculados (aba Dados)", n_b)
+                with m2:
+                    q_display = "—"
+                    if "quantidade_beneficiados" in prow.index:
+                        qraw = prow.get("quantidade_beneficiados")
+                        if pd.notna(qraw):
+                            try:
+                                q_display = int(float(qraw))
+                            except (TypeError, ValueError):
+                                q_display = str(qraw).strip() or "—"
+                    st.metric("Contador (planilha)", q_display)
+
+            st.markdown("**Responsável**")
+            st.write(_texto_celula(prow, "principal_responsavel", "Não informado"))
+
+            st.markdown("**Descrição**")
+            if "descricao" not in prow.index:
+                st.caption("Sem descrição cadastrada.")
+            else:
+                dr = prow.get("descricao")
+                if pd.isna(dr) or str(dr).strip() == "":
+                    st.caption("Sem descrição cadastrada.")
+                else:
+                    st.write(str(dr).strip())
+
+            st.markdown("**Beneficiários vinculados**")
             if nomes:
-                st.markdown("\n".join(f"- {n}" for n in nomes))
+                st.dataframe(
+                    pd.DataFrame({"Beneficiário": nomes}),
+                    use_container_width=True,
+                    hide_index=True,
+                )
             else:
                 st.caption("Nenhum beneficiário vinculado a este projeto nos cadastros.")
 
