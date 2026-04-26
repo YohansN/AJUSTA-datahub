@@ -112,6 +112,81 @@ _MAP_NERVOS = {
     "3 ou mais": 5,
 }
 
+_INV_RACA = {float(v): k for k, v in _MAP_RACA.items()}
+_INV_ESCOL = {float(v): k for k, v in _MAP_ESCOL.items()}
+_INV_FORMA = {float(v): k for k, v in _MAP_FORMA.items()}
+
+
+def _fmt_code_num(val) -> str:
+    try:
+        v = float(val)
+    except (TypeError, ValueError):
+        return str(val)
+    if np.isnan(v):
+        return "—"
+    if v == int(v):
+        return str(int(v))
+    return str(v).rstrip("0").rstrip(".")
+
+
+def label_cs_raca(val) -> str:
+    """Rótulo para multiselect / legenda (código SINAN + nome IBGE)."""
+    try:
+        v = float(val)
+    except (TypeError, ValueError):
+        return str(val) if val is not None and not (isinstance(val, float) and np.isnan(val)) else "—"
+    if np.isnan(v):
+        return "—"
+    nome = _INV_RACA.get(v, "?")
+    return f"{_fmt_code_num(v)} — {nome}"
+
+
+def label_cs_escol_n(val) -> str:
+    try:
+        v = float(val)
+    except (TypeError, ValueError):
+        return str(val)
+    if np.isnan(v):
+        return "—"
+    nome = _INV_ESCOL.get(v, "Código")
+    return f"{_fmt_code_num(v)} — {nome}"
+
+
+def label_classopera(val) -> str:
+    try:
+        v = float(val)
+    except (TypeError, ValueError):
+        return str(val)
+    if np.isnan(v):
+        return "—"
+    if v == 1.0:
+        return "1 — Paucibacilar (PB)"
+    if v == 2.0:
+        return "2 — Multibacilar (MB)"
+    return f"{_fmt_code_num(v)} — Classificação"
+
+
+def label_formaclini(val) -> str:
+    try:
+        v = float(val)
+    except (TypeError, ValueError):
+        return str(val)
+    if np.isnan(v):
+        return "—"
+    nome = _INV_FORMA.get(v, "?")
+    return f"{_fmt_code_num(v)} — {nome}"
+
+
+def label_cs_sexo(val) -> str:
+    if val is None or (isinstance(val, float) and np.isnan(val)):
+        return "—"
+    s = str(val).strip().upper()
+    if s == "M":
+        return "M — Masculino"
+    if s == "F":
+        return "F — Feminino"
+    return str(val)
+
 
 @st.cache_resource
 def get_clinical_risk_pipeline():
@@ -195,6 +270,11 @@ def beneficiarios_com_score(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     if out.empty or not all(c in out.columns for c in required):
         out["score_risco_clinico"] = np.nan
         out["categoria_risco"] = pd.NA
+        for c in FEATURE_COLS:
+            if c == "CS_SEXO":
+                out[c] = pd.Series(pd.NA, index=out.index, dtype=object)
+            else:
+                out[c] = np.nan
         return out, stats
 
     feats = _build_feature_row_series(out)
@@ -203,6 +283,11 @@ def beneficiarios_com_score(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 
     out["score_risco_clinico"] = np.nan
     out["categoria_risco"] = pd.Series(pd.NA, index=out.index, dtype="string")
+    for c in FEATURE_COLS:
+        if c == "CS_SEXO":
+            out[c] = pd.Series(pd.NA, index=out.index, dtype=object)
+        else:
+            out[c] = np.nan
 
     if not elig.any():
         return out, stats
@@ -219,6 +304,8 @@ def beneficiarios_com_score(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     proba = pipeline.predict_proba(X)[:, 1]
     out.loc[elig, "score_risco_clinico"] = proba
     out.loc[elig, "categoria_risco"] = [classificar_risco(float(s)) for s in proba]
+    for c in FEATURE_COLS:
+        out.loc[elig, c] = feats.loc[elig, c].values
     stats["com_score"] = int(elig.sum())
 
     return out, stats
