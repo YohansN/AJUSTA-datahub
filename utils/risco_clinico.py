@@ -13,7 +13,6 @@ from __future__ import annotations
 from pathlib import Path
 from datetime import datetime
 
-import joblib
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -191,6 +190,8 @@ def label_cs_sexo(val) -> str:
 @st.cache_resource
 def get_clinical_risk_pipeline():
     """Carrega o joblib uma vez por sessão (sklearn==1.6.1)."""
+    import joblib  # import tardio: evita falha ao importar o módulo se joblib/sklearn atrasarem no deploy
+
     root = Path(__file__).resolve().parents[1]
     path = root / MODEL_REL_PATH
     if not path.is_file():
