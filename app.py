@@ -18,7 +18,7 @@ with st.container():
     col1, col2 = st.columns([3, 1])
     with col1:
         st.markdown(f"### Bem-vindo, {st.user.name}!")
-        st.markdown(f"E-mail: {st.user.email}")
+        st.markdown(f"login: {st.user.email}")
     with col2:
         btn_col1, btn_col2 = st.columns(2)
         with btn_col2:
@@ -36,14 +36,12 @@ with st.container():
     with row1_c2:
         st.page_link("pages/2_Beneficiarios.py", label="Beneficiários ativos", width='stretch')
     with row1_c3:
-        st.page_link("pages/3_Detalhes.py", label="Detalhes beneficiários", width='stretch')
+        st.page_link("pages/3_Novo_Cadastro.py", label="Cadastro de beneficiários", width='stretch')
     row2_c1, row2_c2, row2_c3 = st.columns(3)
     with row2_c1:
-        st.page_link("pages/4_Novo_Cadastro.py", label="Cadastro de beneficiários", width='stretch')
+        st.page_link("pages/4_Administração.py", label="Administração", width='stretch')
     with row2_c2:
-        st.page_link("pages/5_Administração.py", label="Administração", width='stretch')
-    with row2_c3:
-        st.page_link("pages/6_Projetos.py", label="Projetos", width='stretch')
+        st.page_link("pages/5_Projetos.py", label="Projetos", width='stretch')
 
 st.markdown("---")
 
