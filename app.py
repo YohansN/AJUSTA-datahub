@@ -42,7 +42,11 @@ with st.container():
         st.page_link("pages/4_Administração.py", label="Administração", width='stretch')
     with row2_c2:
         st.page_link("pages/5_Projetos.py", label="Projetos", width='stretch')
-
+    with row2_c3:
+        st.page_link("pages/6_Vulnerabilidades.py", label="Vulnerabilidades", width='stretch')        
+    row3_c1, row3_c2, row3_c3 = st.columns(3)
+    with row3_c1:
+        st.page_link("pages/7_Sobre.py", label="Sobre", width='stretch')
 st.markdown("---")
 
 # Bloco 3: Mensagem de confirmação de login
