@@ -29,7 +29,7 @@ FEATURE_COLS = [
     "FORMACLINI",
 ]
 
-MODEL_REL_PATH = Path("ml_models") / "modelo_risco_clinico_v2.pkl"
+MODEL_REL_PATH = Path("ml_models") / "model_16d63f02.pkl"
 
 # Classificação sugerida em contexts/implement_model.md
 def classificar_risco(score: float) -> str:
