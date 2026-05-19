@@ -414,11 +414,6 @@ def toggle_status_project_dialog():
 st.title("Projetos")
 st.write("Gerencie os projetos do instituto.")
 st.caption("Os projetos cadastrados aparecerão como opção para preenchimento no cadastro de beneficiários.")
-st.caption(
-    "Visão geral da planilha **Projetos**. Status, descrição, responsável e lista de beneficiários "
-    "(aba **Dados**) estão na seção **Beneficiários por projeto** abaixo."
-)
-st.dataframe(get_projects(), use_container_width=True)
 
 st.markdown("---")
 st.markdown("## Gerenciar Projetos")
@@ -457,54 +452,70 @@ _df_proj = get_projects()
 if _df_proj.empty or "projeto" not in _df_proj.columns:
     st.info("Não há projetos cadastrados para exibir.")
 else:
-    for _, prow in _df_proj.iterrows():
-        pn = prow.get("projeto")
-        nomes = _beneficiarios_do_projeto(_mapa_benef, pn)
-        label = str(pn).strip() if pd.notna(pn) else "(sem nome)"
-        n_b = len(nomes)
-        exp_title = f"{label} — {n_b} {'beneficiário' if n_b == 1 else 'beneficiários'}"
-        with st.expander(exp_title, expanded=False):
-            c_status, c_metrics = st.columns(2)
-            with c_status:
-                st.markdown("**Status**")
-                _render_status_projeto(prow)
-            with c_metrics:
-                m1, m2 = st.columns(2)
-                with m1:
-                    st.metric("Vinculados (aba Dados)", n_b)
-                with m2:
-                    q_display = "—"
-                    if "quantidade_beneficiados" in prow.index:
-                        qraw = prow.get("quantidade_beneficiados")
-                        if pd.notna(qraw):
-                            try:
-                                q_display = int(float(qraw))
-                            except (TypeError, ValueError):
-                                q_display = str(qraw).strip() or "—"
-                    st.metric("Contador (planilha)", q_display)
+    rows = list(_df_proj.iterrows())
+    for i in range(0, len(rows), 2):
+        grid_cols = st.columns(2)
+        for j, col_widget in enumerate(grid_cols):
+            if i + j >= len(rows):
+                break
+            _, prow = rows[i + j]
 
-            st.markdown("**Responsável**")
-            st.write(_texto_celula(prow, "principal_responsavel", "Não informado"))
+            pn = prow.get("projeto")
+            nomes = _beneficiarios_do_projeto(_mapa_benef, pn)
+            label = str(pn).strip() if pd.notna(pn) else "(sem nome)"
+            n_b = len(nomes)
 
-            st.markdown("**Descrição**")
-            if "descricao" not in prow.index:
-                st.caption("Sem descrição cadastrada.")
+            desc_raw = prow.get("descricao") if "descricao" in prow.index else None
+            if desc_raw is None or pd.isna(desc_raw) or str(desc_raw).strip() == "":
+                desc_preview = "Sem descrição cadastrada."
+                has_desc = False
             else:
-                dr = prow.get("descricao")
-                if pd.isna(dr) or str(dr).strip() == "":
-                    st.caption("Sem descrição cadastrada.")
-                else:
-                    st.write(str(dr).strip())
+                full_desc = str(desc_raw).strip()
+                desc_preview = full_desc[:120] + "…" if len(full_desc) > 120 else full_desc
+                has_desc = True
 
-            st.markdown("**Beneficiários vinculados**")
-            if nomes:
-                st.dataframe(
-                    pd.DataFrame({"Beneficiário": nomes}),
-                    use_container_width=True,
-                    hide_index=True,
-                )
-            else:
-                st.caption("Nenhum beneficiário vinculado a este projeto nos cadastros.")
+            q_display = "—"
+            if "quantidade_beneficiados" in prow.index:
+                qraw = prow.get("quantidade_beneficiados")
+                if pd.notna(qraw):
+                    try:
+                        q_display = int(float(qraw))
+                    except (TypeError, ValueError):
+                        q_display = str(qraw).strip() or "—"
+
+            with col_widget:
+                with st.container(border=True):
+                    h_col, s_col = st.columns([3, 1])
+                    with h_col:
+                        st.markdown(f"### {label}")
+                    with s_col:
+                        _render_status_projeto(prow)
+
+                    responsavel = _texto_celula(prow, "principal_responsavel", "Não informado")
+                    st.caption(f"Responsável: {responsavel}")
+                    st.code(_texto_celula(prow, "id", "—"), language=None)
+
+                    m1, m2 = st.columns(2)
+                    with m1:
+                        st.metric("Vinculados (Dados)", n_b)
+                    with m2:
+                        st.metric("Contador (planilha)", q_display)
+
+                    if has_desc:
+                        st.markdown(desc_preview)
+                    else:
+                        st.markdown(f"_{desc_preview}_")
+
+                    exp_label = f"{n_b} {'beneficiário' if n_b == 1 else 'beneficiários'}"
+                    with st.expander(exp_label, expanded=False):
+                        if nomes:
+                            st.dataframe(
+                                pd.DataFrame({"Beneficiário": nomes}),
+                                use_container_width=True,
+                                hide_index=True,
+                            )
+                        else:
+                            st.caption("Nenhum beneficiário vinculado a este projeto nos cadastros.")
 
 
 
