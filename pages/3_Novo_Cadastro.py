@@ -1,3 +1,5 @@
+import re
+
 import streamlit as st
 import pandas as pd
 from datetime import date
@@ -198,18 +200,18 @@ def save_data():
     projeto_acao_str = ", ".join(projeto_acao) if projeto_acao else ""
     
     dados_beneficiario = pd.DataFrame([{
-        "nome_completo": nome_completo,
-        "cpf": cpf,
-        "rg": rg,
+        "nome_completo": nome_completo.strip(),
+        "cpf": cpf.strip(),
+        "rg": rg.strip(),
         "data_nascimento": data_nascimento.strftime("%d/%m/%Y") if data_nascimento else "",
         "sexo": sexo,
         "genero": genero,
         "cor_raca_etnia": cor_raca_etnia,
         "escolaridade": escolaridade,
         "ocupacao": ocupacao,
-        "endereco": endereco,
-        "bairro": bairro,
-        "telefone": telefone,
+        "endereco": endereco.strip(),
+        "bairro": bairro.strip(),
+        "telefone": re.sub(r"\D", "", telefone),
         "anos_residencia": anos_residencia,
         "estado_civil": estado_civil,
         "numero_filhos": numero_filhos,
@@ -229,7 +231,7 @@ def save_data():
         "nervos_afetados": nervos_afetados,
         "grau_incapacidade": grau_incapacidade,
         "responsavel_preenchimento": responsavel_preenchimento,
-        "responsavel_entrevista": responsavel_entrevista
+        "responsavel_entrevista": responsavel_entrevista.strip()
     }])
 
     if not update_sheet_data("Dados", dados_beneficiario):

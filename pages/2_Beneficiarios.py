@@ -1,3 +1,4 @@
+import re
 from datetime import date
 
 import pandas as pd
@@ -255,7 +256,7 @@ def edit_beneficiario_dialog(row: pd.Series) -> None:
             "ocupacao": ocupacao,
             "endereco": endereco.strip(),
             "bairro": bairro.strip(),
-            "telefone": telefone.strip(),
+            "telefone": re.sub(r"\D", "", telefone),
             "anos_residencia": anos_residencia,
             "estado_civil": estado_civil,
             "numero_filhos": numero_filhos,
