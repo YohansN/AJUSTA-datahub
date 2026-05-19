@@ -139,8 +139,7 @@ tab_visao, tab_demo, tab_moradia, tab_proj_saude, tab_renda = st.tabs(
 with tab_visao:
     st.subheader("Visão geral")
     st.caption(
-        "Indicadores calculados sobre o conjunto **já filtrado** (sidebar). "
-        "Útil para comparar subgrupos sem alterar a base inteira."
+        "Todos os indicadores refletem apenas os beneficiários que passaram pelos filtros ativos na sidebar."
     )
     c1, c2, c3, c4 = st.columns(4)
     n_total = len(df_vis)
@@ -168,17 +167,12 @@ with tab_demo:
         st.markdown("#### Sexo")
         s_counts = df_vis["sexo"].value_counts() if "sexo" in df_vis.columns else pd.Series()
         pie_chart(s_counts, "Distribuição por sexo")
-        st.caption(
-            "Proporção de cadastros por sexo informado. "
-            f"“{LABEL_NULO}” inclui campo em branco ou não preenchido na planilha."
-        )
+        st.caption(f"Distribuição por sexo. Cadastros sem essa informação aparecem como '{LABEL_NULO}'.")
     with c2:
         st.markdown("#### Gênero")
         g_counts = df_vis["genero"].value_counts() if "genero" in df_vis.columns else pd.Series()
         pie_chart(g_counts, "Distribuição por gênero")
-        st.caption(
-            "Autodeclaração de gênero quando informada; valores vazios aparecem como não respondido."
-        )
+        st.caption(f"Distribuição por identidade de gênero autodeclarada. Cadastros sem resposta aparecem como '{LABEL_NULO}'.")
 
     st.markdown("#### Faixa etária")
     faixa_counts = df_vis["faixa_etaria"].value_counts() if "faixa_etaria" in df_vis.columns else pd.Series()
@@ -197,8 +191,8 @@ with tab_demo:
     fig_idade = apply_plotly_style(fig_idade, showlegend=False)
     st.plotly_chart(fig_idade, use_container_width=True)
     st.caption(
-        "Idade calculada a partir da data de nascimento quando válida. "
-        f"Sem data utilizável, o cadastro entra em “{LABEL_NULO}” (não é imputado como criança)."
+        f"Faixa etária calculada a partir da data de nascimento. "
+        f"Beneficiários sem data válida são agrupados em '{LABEL_NULO}'."
     )
 
     st.subheader("Localização")
@@ -220,9 +214,7 @@ with tab_demo:
         )
         fig_b = apply_plotly_style(fig_b, showlegend=False)
         st.plotly_chart(fig_b, use_container_width=True)
-        st.caption(
-            "Contagem de cadastros por bairro informado; bairro em branco aparece como não informado."
-        )
+        st.caption(f"Quantidade de beneficiários por bairro. Cadastros sem bairro aparecem como '{LABEL_NULO}'.")
 
 with tab_moradia:
     st.subheader("Moradia")
@@ -233,7 +225,7 @@ with tab_moradia:
             df_vis["tipo_residencia"].value_counts() if "tipo_residencia" in df_vis.columns else pd.Series()
         )
         pie_chart(m_counts, "Tipo de residência")
-        st.caption("Situação da moradia (própria, alugada, etc.) conforme preenchimento do formulário.")
+        st.caption("Distribuição por tipo de moradia: própria, alugada, cedida, entre outras.")
 
     with c2:
         st.markdown("#### Acesso a serviços básicos")
@@ -251,8 +243,8 @@ with tab_moradia:
             fig_a = apply_plotly_style(fig_a)
             st.plotly_chart(fig_a, use_container_width=True)
             st.caption(
-                "Para cada serviço, barras por resposta (Sim, Não, Parcial ou não informado). "
-                "Compara condições entre dimensões."
+                "Quantidade de respostas por serviço básico (água, esgoto, energia). "
+                "Compara o acesso entre os três serviços."
             )
 
 with tab_proj_saude:
@@ -275,8 +267,8 @@ with tab_proj_saude:
         fig_p = apply_plotly_style(fig_p, showlegend=False, xaxis_tickangle=-45)
         st.plotly_chart(fig_p, use_container_width=True)
         st.caption(
-            "Cada menção conta uma vez: um beneficiário em três projetos soma três. "
-            f"“{LABEL_NULO}” indica cadastro sem projeto associado."
+            f"Um beneficiário vinculado a vários projetos é contado em cada um deles. "
+            f"'{LABEL_NULO}' indica cadastros sem projeto."
         )
 
     st.subheader("Hanseníase")
@@ -292,9 +284,7 @@ with tab_proj_saude:
             st.info("Nenhum dado de hanseníase disponível.")
         else:
             pie_chart(h_counts, "Situação referente à hanseníase")
-            st.caption(
-                "Com base em “já teve hanseníase?” ou, em cadastros antigos, na coluna de situação clínica."
-            )
+            st.caption("Situação de cada beneficiário em relação à hanseníase, conforme informado no cadastro.")
     with h_c2:
         st.markdown("#### Estatísticas")
         h_tab = (
@@ -334,8 +324,8 @@ with tab_renda:
         else:
             st.info("Não há valores numéricos de renda para histograma.")
         st.caption(
-            "Histograma usa apenas registros com renda numérica válida. "
-            "O indicador acima mostra quantos ficaram de fora por valor ausente ou inválido."
+            "Distribuição de renda per capita entre os beneficiários com valor informado. "
+            "O indicador acima mostra quantos não têm renda registrada."
         )
     with r2:
         st.markdown("#### Cor / raça / etnia")
@@ -357,7 +347,7 @@ with tab_renda:
             fig_ra.update_traces(marker=dict(line=dict(color=AJUSTA_COLORS["dark"], width=1)))
             fig_ra = apply_plotly_style(fig_ra, showlegend=False)
             st.plotly_chart(fig_ra, use_container_width=True)
-        st.caption("Autodeclaração conforme opções do cadastro; vazios agregados em não informado.")
+        st.caption(f"Distribuição por cor, raça ou etnia autodeclarada. Cadastros sem resposta aparecem como '{LABEL_NULO}'.")
 
 st.markdown("---")
 st.subheader("Resumo dos dados (filtrado)")
